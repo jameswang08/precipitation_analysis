@@ -4,8 +4,8 @@ import rioxarray as rxr #type: ignore
 import pandas as pd #type: ignore
 import calendar
 import os
+import numpy as np
 from glob import glob
-
 
 # Libraries for plotting
 import matplotlib.pyplot as plt # type: ignore
@@ -60,6 +60,9 @@ def extract_time_from_filename(file_path):
     return pd.to_datetime(time_str, format='%Y%m')
 
 # Load prediction data and average ensemble models
+# Store model data keyed by time
+# Dimensions (L, Y, X)
+# Vars prec
 ds = xr.open_dataset('Data/Models/CanCM4i/2018.nc', decode_times=False)
 ds = ds['prec'].mean(dim='M')
 ds = convert_precip(ds, time_dim='S')
@@ -69,14 +72,72 @@ grouped_ds = convert_time(ds, time_dim='S')
 baseline_files = sorted(glob('Data/BaselineCleaned/*.nc'))
 grouped_baseline = {}
 
+# Store baseline data keyed by time
+# Dimensions (y, x)
+# Vars precip and spatial_ref
 for file in baseline_files:
+    # Extract time from filename
     yyyymm = os.path.basename(file)[:6]
-    time = pd.to_datetime(yyyymm, format='%Y%m')
+    # time = pd.to_datetime(yyyymm, format='%Y%m')
 
     ds = xr.open_dataset(file)
     grouped_baseline[yyyymm] = ds
 
+# Compare model predictions with baseline data
+# for l in np.arange(0.5, 12, 0.5):
+
+model_slice = model_slice = grouped_ds['201801'].sel(L=.5)
+model_slice = model_slice.rename({'Y': 'y', 'X': 'x'})
+
+baseline_slice = grouped_baseline['201801']
+
+# Shift model longitudes
+model_slice = model_slice.assign_coords(
+    x=((model_slice.x + 180) % 360) - 180
+)
+model_slice = model_slice.sortby('x')
 
 
+model_interp = model_slice.interp(
+    x=baseline_slice.x,
+    y=baseline_slice.y
+)
+
+diff = model_interp - baseline_slice['precip']
+
+print("Model stats:", model_slice.min().item(), model_slice.max().item())
+print("Baseline stats:", baseline_slice['precip'].min().item(), baseline_slice['precip'].max().item())
+print("Diff stats:")
+print("  Mean:", diff.mean().item())
+print("  Min:", diff.min().item())
+print("  Max:", diff.max().item())
+print("  NaNs:", np.isnan(diff).sum().item())
 
 
+plt.figure(figsize=(10, 6))
+
+# Set projection (e.g., PlateCarree for lat/lon)
+ax = plt.axes(projection=ccrs.PlateCarree())
+
+# Plot the difference data
+diff.plot(ax=ax, cmap='RdBu_r', vmin=-5, vmax=5,  # adjust color limits as needed
+          cbar_kwargs={'label': 'Precipitation Difference (mm)'})
+
+# Add geographic features
+ax.add_feature(cfeature.STATES, edgecolor='gray')  # US states borders
+ax.add_feature(cfeature.COASTLINE)
+ax.add_feature(cfeature.BORDERS)
+
+# Set extent to cover the US [lon_min, lon_max, lat_min, lat_max]
+ax.set_extent([-125, -66.5, 24, 50], crs=ccrs.PlateCarree())
+
+plt.title('Difference in Precipitation (Model - Baseline)')
+plt.show()
+
+print("Model x:", model_slice.x.min().item(), model_slice.x.max().item())
+print("Baseline x:", baseline_slice.x.min().item(), baseline_slice.x.max().item())
+
+print("Model y:", model_slice.y.min().item(), model_slice.y.max().item())
+print("Baseline y:", baseline_slice.y.min().item(), baseline_slice.y.max().item())
+print("Model CRS:", getattr(model_slice, 'rio', None))
+print("Baseline CRS:", getattr(baseline_slice, 'rio', None))

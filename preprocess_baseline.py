@@ -31,7 +31,7 @@ for year in years:
         ds.name = 'precipitation'
 
         precip = ds.squeeze('band')
-        ds_clean = precip.to_dataset(name='precipitation')
+        ds_clean = precip.to_dataset(name='precip')
 
         final_nc = os.path.join(output_dir, f"{file_date}.nc")
         ds_clean.to_netcdf(final_nc)
