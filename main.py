@@ -3,6 +3,7 @@ import xarray as xr # type: ignore
 import rioxarray as rxr #type: ignore
 import pandas as pd #type: ignore
 import calendar
+from collections import defaultdict
 import os
 import numpy as np
 from glob import glob
@@ -59,10 +60,10 @@ def extract_time_from_filename(file_path):
     time_str = basename[:6]  # Extract 'YYYYMM'
     return pd.to_datetime(time_str, format='%Y%m')
 
-def normalize_CanCM4i(grouped_ds, time_key='201801', level=0.5):
+def normalize_CanCM4i(grouped_ds, time_key='201801', lead=0.5):
     """
     Selects and preprocesses a model slice from the dataset:
-    - Selects a time slice and pressure level
+    - Selects a time slice and lead time
     - Renames coordinate variables to match the baseline
     - Normalizes longitude to [-180, 180]
     - Sorts by longitude
@@ -70,18 +71,41 @@ def normalize_CanCM4i(grouped_ds, time_key='201801', level=0.5):
     Parameters:
         grouped_ds (xarray.Dataset): The input dataset grouped by time.
         time_key (str): The time slice key to select (e.g., '201801').
-        level (float): The level to select from the 'L' coordinate.
+        lead (float): The lead to select from the 'L' coordinate.
 
     Returns:
         xarray.Dataset: The prepared model slice.
     """
-    model_slice = grouped_ds[time_key].sel(L=level)
+
+    model_slice = grouped_ds[time_key].sel(L=lead)
     model_slice = model_slice.rename({'Y': 'y', 'X': 'x'})
     model_slice = model_slice.assign_coords(
         x=((model_slice.x + 180) % 360) - 180
     )
     model_slice = model_slice.sortby('x')
     return model_slice
+
+def calculate_baseline(date, lead):
+    """
+    Calculates baseline to compare prediction against by adding lead time to prediction date.
+
+    Parameters:
+        date (str): The base date in "YYYYMM" format.
+        lead (float): The number of months to add to the base date.
+
+    Returns:
+        str: The resulting date in "YYYYMM" format
+    """
+    year = date[:4]
+    month = int(date[4:6])
+    month += lead
+    month = int(month)
+
+    if month > 12:
+        month -= 11 # Since we start counting from 1 (Jan)
+        year = str(int(year) + 1)
+
+    return f"{year}{month:02d}"
 
 
 def calculate_precip_difference(model_slice, baseline_slice):
@@ -123,12 +147,26 @@ for file in baseline_files:
     grouped_baseline[yyyymm] = ds
 
 # Compare model predictions with baseline data
-# for l in np.arange(0.5, 12, 0.5):
+results = defaultdict(list)
+for month in grouped_ds.keys():
+    print(f"Processing month: {month}")
+    for l in np.arange(0.5, 12, 1):
+        print(f"Processing lead time: {l}")
 
-# Rename vars to match baseline and normalize longitude
-model_slice = normalize_CanCM4i(grouped_ds, time_key='201801', level=0.5)
+        # Rename vars to match baseline and normalize longitude
+        model_slice = normalize_CanCM4i(grouped_ds, time_key=month, lead=float(l))
+        baseline_slice = grouped_baseline[calculate_baseline(month, float(l))]
 
+        # diff = calculate_precip_difference(model_slice, baseline_slice)
 
-baseline_slice = grouped_baseline['201801']
+        # Calculate difference stats bias ratio, normalized RMSE, and anomaly correlation coefficient
+        baseline_precip = baseline_slice['precip']
 
-diff = calculate_precip_difference(model_slice, baseline_slice)
+        bias_ratio = ((model_slice - baseline_precip).mean() / baseline_precip.mean()).item()
+        rmse = np.sqrt(((model_slice - baseline_precip) ** 2).mean()).item()
+
+        results[month].append({
+            'lead': float(l),
+            'bias_ratio': bias_ratio,
+            'rmse': rmse,
+        })
