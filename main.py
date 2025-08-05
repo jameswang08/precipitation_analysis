@@ -134,6 +134,54 @@ def calculate_precip_difference(model_slice, baseline_slice):
 
     return bias, rmse
 
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+def plot_metrics_heatmaps(results):
+    """
+    Plot heatmaps of bias_ratio and RMSE from results dict.
+
+    Parameters:
+        results (dict): keys are date strings (YYYYMM),
+                        values are lists of dicts with 'lead', 'bias_ratio', 'rmse'.
+    """
+    dates = sorted(results.keys())
+    leads = sorted({entry['lead'] for month in results.values() for entry in month})
+
+    # Prepare DataFrames for bias_ratio and rmse
+    bias_df = pd.DataFrame(index=dates, columns=leads, dtype=float)
+    rmse_df = pd.DataFrame(index=dates, columns=leads, dtype=float)
+
+    for date in dates:
+        for entry in results[date]:
+            lead = entry['lead']
+            bias_df.loc[date, lead] = entry['bias_ratio']
+            rmse_df.loc[date, lead] = entry['rmse']
+
+    # Convert index to datetime, format to YYYYMM string for neat labels
+    bias_df.index = pd.to_datetime(bias_df.index, format='%Y%m')
+    rmse_df.index = pd.to_datetime(rmse_df.index, format='%Y%m')
+
+    # Format index as YYYYMM string (to avoid overly precise dates)
+    bias_df.index = bias_df.index.strftime('%Y%m')
+    rmse_df.index = rmse_df.index.strftime('%Y%m')
+
+    # Plot side by side
+    fig, axs = plt.subplots(1, 2, figsize=(16, 8))
+
+    sns.heatmap(bias_df, cmap='coolwarm', center=0, annot=True, fmt=".2f", ax=axs[0])
+    axs[0].set_title('Bias Ratio Heatmap')
+    axs[0].set_xlabel('Lead Time (months)')
+    axs[0].set_ylabel('Date (YYYYMM)')
+
+    sns.heatmap(rmse_df, cmap='viridis', annot=True, fmt=".2f", ax=axs[1])
+    axs[1].set_title('RMSE Heatmap')
+    axs[1].set_xlabel('Lead Time (months)')
+    axs[1].set_ylabel('Date (YYYYMM)')
+
+    plt.tight_layout()
+    plt.show()
 
 # Load prediction data and average ensemble models
 # Store model data keyed by time
@@ -173,8 +221,4 @@ for month in grouped_ds.keys():
             'rmse': rmse,
         })
 
-# Printing contents of results
-for month, entries in results.items():
-    print(f"Month: {month}")
-    for entry in entries:
-        print(f"  Lead: {entry['lead']}, Bias Ratio: {entry['bias_ratio']:.4f}, RMSE: {entry['rmse']:.4f}")
+plot_metrics_heatmaps(results)
