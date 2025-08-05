@@ -7,6 +7,7 @@ from collections import defaultdict
 import os
 import numpy as np
 from glob import glob
+import seaborn as sns
 
 # Libraries for plotting
 import matplotlib.pyplot as plt # type: ignore
@@ -110,8 +111,10 @@ def calculate_baseline(date, lead):
 
 def calculate_precip_difference(model_slice, baseline_slice):
     """
-    Interpolates model_slice to the baseline_slice grid and calculates
-    the precipitation difference.
+    Interpolates model_slice to the baseline_slice grid and calculates error stats
+    - bias ratio
+    - normalized rmse
+    - anomaly correlation coefficient (not implemented)
 
     Parameters:
         model_slice (xarray.DataArray or xarray.Dataset): The model data to interpolate.
@@ -125,7 +128,12 @@ def calculate_precip_difference(model_slice, baseline_slice):
         y=baseline_slice.y
     )
     diff = model_interp - baseline_slice['precip']
-    return diff
+
+    bias = diff.mean().item()
+    rmse = np.sqrt((diff ** 2).mean()).item()
+
+    return bias, rmse
+
 
 # Load prediction data and average ensemble models
 # Store model data keyed by time
@@ -157,16 +165,16 @@ for month in grouped_ds.keys():
         model_slice = normalize_CanCM4i(grouped_ds, time_key=month, lead=float(l))
         baseline_slice = grouped_baseline[calculate_baseline(month, float(l))]
 
-        # diff = calculate_precip_difference(model_slice, baseline_slice)
-
-        # Calculate difference stats bias ratio, normalized RMSE, and anomaly correlation coefficient
-        baseline_precip = baseline_slice['precip']
-
-        bias_ratio = ((model_slice - baseline_precip).mean() / baseline_precip.mean()).item()
-        rmse = np.sqrt(((model_slice - baseline_precip) ** 2).mean()).item()
+        bias_ratio, rmse = calculate_precip_difference(model_slice, baseline_slice)
 
         results[month].append({
             'lead': float(l),
             'bias_ratio': bias_ratio,
             'rmse': rmse,
         })
+
+# Printing contents of results
+for month, entries in results.items():
+    print(f"Month: {month}")
+    for entry in entries:
+        print(f"  Lead: {entry['lead']}, Bias Ratio: {entry['bias_ratio']:.4f}, RMSE: {entry['rmse']:.4f}")
