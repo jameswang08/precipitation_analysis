@@ -59,6 +59,50 @@ def extract_time_from_filename(file_path):
     time_str = basename[:6]  # Extract 'YYYYMM'
     return pd.to_datetime(time_str, format='%Y%m')
 
+def normalize_CanCM4i(grouped_ds, time_key='201801', level=0.5):
+    """
+    Selects and preprocesses a model slice from the dataset:
+    - Selects a time slice and pressure level
+    - Renames coordinate variables to match the baseline
+    - Normalizes longitude to [-180, 180]
+    - Sorts by longitude
+
+    Parameters:
+        grouped_ds (xarray.Dataset): The input dataset grouped by time.
+        time_key (str): The time slice key to select (e.g., '201801').
+        level (float): The level to select from the 'L' coordinate.
+
+    Returns:
+        xarray.Dataset: The prepared model slice.
+    """
+    model_slice = grouped_ds[time_key].sel(L=level)
+    model_slice = model_slice.rename({'Y': 'y', 'X': 'x'})
+    model_slice = model_slice.assign_coords(
+        x=((model_slice.x + 180) % 360) - 180
+    )
+    model_slice = model_slice.sortby('x')
+    return model_slice
+
+
+def calculate_precip_difference(model_slice, baseline_slice):
+    """
+    Interpolates model_slice to the baseline_slice grid and calculates
+    the precipitation difference.
+
+    Parameters:
+        model_slice (xarray.DataArray or xarray.Dataset): The model data to interpolate.
+        baseline_slice (xarray.DataArray or xarray.Dataset): The baseline data with target grid.
+
+    Returns:
+        xarray.DataArray: The difference between interpolated model and baseline precipitation.
+    """
+    model_interp = model_slice.interp(
+        x=baseline_slice.x,
+        y=baseline_slice.y
+    )
+    diff = model_interp - baseline_slice['precip']
+    return diff
+
 # Load prediction data and average ensemble models
 # Store model data keyed by time
 # Dimensions (L, Y, X)
@@ -68,76 +112,23 @@ ds = ds['prec'].mean(dim='M')
 ds = convert_precip(ds, time_dim='S')
 grouped_ds = convert_time(ds, time_dim='S')
 
-# Load baseline data
-baseline_files = sorted(glob('Data/BaselineCleaned/*.nc'))
-grouped_baseline = {}
-
 # Store baseline data keyed by time
 # Dimensions (y, x)
 # Vars precip and spatial_ref
+baseline_files = sorted(glob('Data/BaselineCleaned/*.nc'))
+grouped_baseline = {}
 for file in baseline_files:
-    # Extract time from filename
     yyyymm = os.path.basename(file)[:6]
-    # time = pd.to_datetime(yyyymm, format='%Y%m')
-
     ds = xr.open_dataset(file)
     grouped_baseline[yyyymm] = ds
 
 # Compare model predictions with baseline data
 # for l in np.arange(0.5, 12, 0.5):
 
-model_slice = model_slice = grouped_ds['201801'].sel(L=.5)
-model_slice = model_slice.rename({'Y': 'y', 'X': 'x'})
+# Rename vars to match baseline and normalize longitude
+model_slice = normalize_CanCM4i(grouped_ds, time_key='201801', level=0.5)
+
 
 baseline_slice = grouped_baseline['201801']
 
-# Shift model longitudes
-model_slice = model_slice.assign_coords(
-    x=((model_slice.x + 180) % 360) - 180
-)
-model_slice = model_slice.sortby('x')
-
-
-model_interp = model_slice.interp(
-    x=baseline_slice.x,
-    y=baseline_slice.y
-)
-
-diff = model_interp - baseline_slice['precip']
-
-print("Model stats:", model_slice.min().item(), model_slice.max().item())
-print("Baseline stats:", baseline_slice['precip'].min().item(), baseline_slice['precip'].max().item())
-print("Diff stats:")
-print("  Mean:", diff.mean().item())
-print("  Min:", diff.min().item())
-print("  Max:", diff.max().item())
-print("  NaNs:", np.isnan(diff).sum().item())
-
-
-plt.figure(figsize=(10, 6))
-
-# Set projection (e.g., PlateCarree for lat/lon)
-ax = plt.axes(projection=ccrs.PlateCarree())
-
-# Plot the difference data
-diff.plot(ax=ax, cmap='RdBu_r', vmin=-5, vmax=5,  # adjust color limits as needed
-          cbar_kwargs={'label': 'Precipitation Difference (mm)'})
-
-# Add geographic features
-ax.add_feature(cfeature.STATES, edgecolor='gray')  # US states borders
-ax.add_feature(cfeature.COASTLINE)
-ax.add_feature(cfeature.BORDERS)
-
-# Set extent to cover the US [lon_min, lon_max, lat_min, lat_max]
-ax.set_extent([-125, -66.5, 24, 50], crs=ccrs.PlateCarree())
-
-plt.title('Difference in Precipitation (Model - Baseline)')
-plt.show()
-
-print("Model x:", model_slice.x.min().item(), model_slice.x.max().item())
-print("Baseline x:", baseline_slice.x.min().item(), baseline_slice.x.max().item())
-
-print("Model y:", model_slice.y.min().item(), model_slice.y.max().item())
-print("Baseline y:", baseline_slice.y.min().item(), baseline_slice.y.max().item())
-print("Model CRS:", getattr(model_slice, 'rio', None))
-print("Baseline CRS:", getattr(baseline_slice, 'rio', None))
+diff = calculate_precip_difference(model_slice, baseline_slice)
