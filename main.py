@@ -8,6 +8,7 @@ import os
 import numpy as np
 from glob import glob
 import seaborn as sns
+from typing import Dict, Union
 
 # Libraries for plotting
 import matplotlib.pyplot as plt # type: ignore
@@ -54,6 +55,33 @@ def convert_time(ds: xr.Dataset | xr.DataArray, time_dim='time') -> dict[str, xr
         grouped[key] = ds_with_yyyymm.sel({time_dim: key})
 
     return grouped
+
+def load_model_data(model: str) -> Dict[str, Union[xr.Dataset, xr.DataArray]]:
+    """
+    Loads and processes model prediction data from a NetCDF file.
+
+    This function:
+    - Loads the specified model NetCDF file
+    - Averages across the ensemble member dimension ('M')
+    - Converts precipitation rates (mm/day) to monthly totals (mm)
+    - Converts the time coordinate from numeric format (months since 1960-01)
+      to string format (YYYYMM), and groups the dataset by month.
+
+    Parameters:
+        model (str): Filename of the model NetCDF file (e.g., 'CanCM4i.nc').
+
+    Returns:
+        dict[str, Union[xarray.Dataset, xarray.DataArray]]:
+            A dictionary mapping each YYYYMM date string to its corresponding
+            dataset or data array slice.
+    """
+    files = sorted(glob(os.path.join(f'Data/Models/{model}', '*.nc')))
+    ds = xr.open_mfdataset(files, concat_dim='S', combine='nested', decode_times=False)
+    ds = ds['prec'].mean(dim='M')
+    ds = convert_precip(ds, time_dim='S')
+    grouped_ds = convert_time(ds, time_dim='S')
+
+    return grouped_ds
 
 # Helper function to extract time from filename
 def extract_time_from_filename(file_path):
@@ -123,6 +151,9 @@ def calculate_precip_difference(model_slice, baseline_slice):
     Returns:
         xarray.DataArray: The difference between interpolated model and baseline precipitation.
     """
+
+    model_slice = model_slice.compute() if hasattr(model_slice, 'compute') else model_slice
+
     model_interp = model_slice.interp(
         x=baseline_slice.x,
         y=baseline_slice.y
@@ -133,10 +164,6 @@ def calculate_precip_difference(model_slice, baseline_slice):
     rmse = np.sqrt((diff ** 2).mean()).item()
 
     return bias, rmse
-
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 def plot_metrics_heatmaps(results):
     """
@@ -175,22 +202,13 @@ def plot_metrics_heatmaps(results):
     axs[0].set_xlabel('Lead Time (months)')
     axs[0].set_ylabel('Date (YYYYMM)')
 
-    sns.heatmap(rmse_df, cmap='viridis', annot=True, fmt=".2f", ax=axs[1])
+    sns.heatmap(rmse_df, cmap='coolwarm', annot=True, fmt=".2f", ax=axs[1])
     axs[1].set_title('RMSE Heatmap')
     axs[1].set_xlabel('Lead Time (months)')
     axs[1].set_ylabel('Date (YYYYMM)')
 
     plt.tight_layout()
     plt.show()
-
-# Load prediction data and average ensemble models
-# Store model data keyed by time
-# Dimensions (L, Y, X)
-# Vars prec
-ds = xr.open_dataset('Data/Models/CanCM4i/2018.nc', decode_times=False)
-ds = ds['prec'].mean(dim='M')
-ds = convert_precip(ds, time_dim='S')
-grouped_ds = convert_time(ds, time_dim='S')
 
 # Store baseline data keyed by time
 # Dimensions (y, x)
@@ -201,6 +219,9 @@ for file in baseline_files:
     yyyymm = os.path.basename(file)[:6]
     ds = xr.open_dataset(file)
     grouped_baseline[yyyymm] = ds
+
+# Load model data
+grouped_ds = load_model_data(model='CanCM4i')
 
 # Compare model predictions with baseline data
 results = defaultdict(list)
