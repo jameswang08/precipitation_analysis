@@ -33,6 +33,9 @@ for year in years:
         precip = ds.squeeze('band')
         ds_clean = precip.to_dataset(name='precip')
 
+        # Add date as a coordinate (string) to the dataset
+        ds_clean = ds_clean.assign_coords(date=file_date)
+
         final_nc = os.path.join(output_dir, f"{file_date}.nc")
         ds_clean.to_netcdf(final_nc)
 

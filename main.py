@@ -30,12 +30,9 @@ def convert_precip(ds: xr.DataArray, time_dim='S') -> xr.DataArray:
 
     return monthly_total
 
-def convert_time(ds: xr.Dataset | xr.DataArray, time_dim='time') -> dict[str, xr.Dataset | xr.DataArray]:
+def convert_time(ds: xr.Dataset | xr.DataArray, time_dim='time') -> Union[xr.DataArray, xr.Dataset]:
     """
     Convert time from months since Jan 1960 to YYYYMM format then group by month.
-
-    Returns:
-    - A dictionary mapping YYYYMM strings to corresponding dataset slices.
     """
     # Convert time coordinate to YYYYMM strings
     months_since_1960 = ds[time_dim].values
@@ -46,17 +43,9 @@ def convert_time(ds: xr.Dataset | xr.DataArray, time_dim='time') -> dict[str, xr
     # Create a DataArray with YYYYMM labels as coordinate
     ds_with_yyyymm = ds.assign_coords({time_dim: yyyymm})
 
-    # Unique YYYYMM values
-    unique_yyyymm = list(pd.unique(yyyymm))
+    return ds_with_yyyymm
 
-    # Group and store subsets by YYYYMM key
-    grouped = {}
-    for key in unique_yyyymm:
-        grouped[key] = ds_with_yyyymm.sel({time_dim: key})
-
-    return grouped
-
-def load_model_data(model: str) -> Dict[str, Union[xr.Dataset, xr.DataArray]]:
+def load_model_data(model: str) -> Union[xr.Dataset, xr.DataArray]:
     """
     Loads and processes model prediction data from a NetCDF file.
 
@@ -69,19 +58,14 @@ def load_model_data(model: str) -> Dict[str, Union[xr.Dataset, xr.DataArray]]:
 
     Parameters:
         model (str): Filename of the model NetCDF file (e.g., 'CanCM4i.nc').
-
-    Returns:
-        dict[str, Union[xarray.Dataset, xarray.DataArray]]:
-            A dictionary mapping each YYYYMM date string to its corresponding
-            dataset or data array slice.
     """
     files = sorted(glob(os.path.join(f'Data/Models/{model}', '*.nc')))
     ds = xr.open_mfdataset(files, concat_dim='S', combine='nested', decode_times=False)
     ds = ds['prec'].mean(dim='M')
     ds = convert_precip(ds, time_dim='S')
-    grouped_ds = convert_time(ds, time_dim='S')
+    ds = convert_time(ds, time_dim='S')
 
-    return grouped_ds
+    return ds
 
 # Helper function to extract time from filename
 def extract_time_from_filename(file_path):
@@ -214,32 +198,29 @@ def plot_metrics_heatmaps(results):
 # Dimensions (y, x)
 # Vars precip and spatial_ref
 baseline_files = sorted(glob('Data/BaselineCleaned/*.nc'))
-grouped_baseline = {}
-for file in baseline_files:
-    yyyymm = os.path.basename(file)[:6]
-    ds = xr.open_dataset(file)
-    grouped_baseline[yyyymm] = ds
+baseline_ds = xr.open_mfdataset(
+    baseline_files,
+    combine='nested',
+    concat_dim='date',
+    preprocess=lambda ds: ds.expand_dims('date')
+)
 
-# Load model data
-grouped_ds = load_model_data(model='CanCM4i')
+# # Load model data
+# grouped_ds = load_model_data(model='CanCM4i')
 
-# Compare model predictions with baseline data
-results = defaultdict(list)
-for month in grouped_ds.keys():
-    print(f"Processing month: {month}")
-    for l in np.arange(0.5, 12, 1):
-        print(f"Processing lead time: {l}")
+# # Compare model predictions with baseline data
+# results = defaultdict(list)
+# years = sorted(set(date[:4] for date in grouped_ds.keys()))
+# months = sorted(set(date[4:6] for date in grouped_ds.keys()))
 
-        # Rename vars to match baseline and normalize longitude
-        model_slice = normalize_CanCM4i(grouped_ds, time_key=month, lead=float(l))
-        baseline_slice = grouped_baseline[calculate_baseline(month, float(l))]
+# for l in np.arange(0.5, 12, 1):
+#     print(f"Processing lead time: {l}")
+#     for month in months:
+#         print(f"Processing month: {month}")
 
-        bias_ratio, rmse = calculate_precip_difference(model_slice, baseline_slice)
+# plot_metrics_heatmaps(results)
 
-        results[month].append({
-            'lead': float(l),
-            'bias_ratio': bias_ratio,
-            'rmse': rmse,
-        })
+# ds = load_model_data(model='CanCM4i')
+ds = xr.open_dataset('Data/BaselineCleaned/201801.nc')
 
-plot_metrics_heatmaps(results)
+print(ds)
