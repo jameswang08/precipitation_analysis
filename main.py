@@ -194,33 +194,26 @@ def plot_metrics_heatmaps(results):
     plt.tight_layout()
     plt.show()
 
-# Store baseline data keyed by time
-# Dimensions (y, x)
+# Load baseline data
+# Coordinates (x, y, date)
 # Vars precip and spatial_ref
 baseline_files = sorted(glob('Data/BaselineCleaned/*.nc'))
 baseline_ds = xr.open_mfdataset(
     baseline_files,
     combine='nested',
-    concat_dim='date',
-    preprocess=lambda ds: ds.expand_dims('date')
+    concat_dim='file_index',
+    coords='minimal',
+    data_vars='minimal'
 )
+baseline_ds = baseline_ds.drop_vars('time')
 
-# # Load model data
-# grouped_ds = load_model_data(model='CanCM4i')
+# Load model data
+model_ds = load_model_data(model='CanCM4i')
 
-# # Compare model predictions with baseline data
-# results = defaultdict(list)
-# years = sorted(set(date[:4] for date in grouped_ds.keys()))
-# months = sorted(set(date[4:6] for date in grouped_ds.keys()))
-
-# for l in np.arange(0.5, 12, 1):
-#     print(f"Processing lead time: {l}")
-#     for month in months:
-#         print(f"Processing month: {month}")
+# Compare model predictions with baseline data
+for l in np.arange(0.5, 12, 1):
+    print(f"Processing lead time: {l}")
+    for month in months:
+        print(f"Processing month: {month}")
 
 # plot_metrics_heatmaps(results)
-
-# ds = load_model_data(model='CanCM4i')
-ds = xr.open_dataset('Data/BaselineCleaned/201801.nc')
-
-print(ds)
