@@ -69,37 +69,6 @@ def load_model_data(model: str) -> Union[xr.Dataset, xr.DataArray]:
 
     return ds
 
-# Helper function to extract time from filename
-def extract_time_from_filename(file_path):
-    basename = os.path.basename(file_path)
-    time_str = basename[:6]  # Extract 'YYYYMM'
-    return pd.to_datetime(time_str, format='%Y%m')
-
-def normalize_CanCM4i(grouped_ds, time_key='201801', lead=0.5):
-    """
-    Selects and preprocesses a model slice from the dataset:
-    - Selects a time slice and lead time
-    - Renames coordinate variables to match the baseline
-    - Normalizes longitude to [-180, 180]
-    - Sorts by longitude
-
-    Parameters:
-        grouped_ds (xarray.Dataset): The input dataset grouped by time.
-        time_key (str): The time slice key to select (e.g., '201801').
-        lead (float): The lead to select from the 'L' coordinate.
-
-    Returns:
-        xarray.Dataset: The prepared model slice.
-    """
-
-    model_slice = grouped_ds[time_key].sel(L=lead)
-    model_slice = model_slice.rename({'Y': 'y', 'X': 'x'})
-    model_slice = model_slice.assign_coords(
-        x=((model_slice.x + 180) % 360) - 180
-    )
-    model_slice = model_slice.sortby('x')
-    return model_slice
-
 def calculate_baseline(date, lead):
     """
     Calculates baseline to compare prediction against by adding lead time to prediction date.
@@ -132,6 +101,9 @@ def spatial_anomaly_correlation_coefficient(model, baseline, dim='date'):
 
     denominator = np.sqrt(model_var * baseline_var)
 
+    print("Model anomaly variance:", model_var.mean().values)
+    print("Baseline anomaly variance:", baseline_var.mean().values)
+
     acc = xr.where(denominator != 0, numerator / denominator, np.nan)
 
     return acc
@@ -144,14 +116,8 @@ baseline_files = sorted(glob('Data/BaselineCleaned/*.nc'))
 baseline_ds = xr.open_mfdataset(
     baseline_files,
     combine='nested',
-    concat_dim='file_index',
-    coords='minimal',
-    data_vars='minimal',
-    compat='override'
+    concat_dim="date"
 )
-print(baseline_ds.dims)
-print(baseline_ds.coords)
-
 
 # Load model data
 model_ds = load_model_data(model='CanCM4i')
@@ -165,91 +131,28 @@ results = defaultdict(list)
 # Compare model predictions with baseline data
 # for l in np.arange(0.5, 12, 1):
 #     print(f"Processing lead time: {l}")
+
 for month in months:
     print(f"Processing month: {month}")
 
     baseline_slice = baseline_ds.sel(date=baseline_ds['date'].str[-2:] == month)
-
     model_slice = model_ds.sel(date=model_ds['date'].str[-2:] == month).sel(L=0.5)
-    model_slice = model_slice.rename({'X': 'x', 'Y': 'y'})
+
     # Normalize and sort longitudes
+    model_slice = model_slice.rename({'X': 'x', 'Y': 'y'})
     model_slice['x'] = ((model_slice['x'] + 180) % 360) - 180
     model_slice = model_slice.sortby('x')
+
     model_slice = model_slice.interp(x=baseline_slice.x, y=baseline_slice.y)
 
-
-
     diff = baseline_slice['precip'] - model_slice
-
     bias = diff.mean(dim='date')
     rmse = np.sqrt((diff ** 2).mean(dim='date'))
-
     acc = spatial_anomaly_correlation_coefficient(model_slice, baseline_slice)
 
-    # Store results
     results[month].append({
         'lead': 0.5,
         'bias': bias,
         'rmse': rmse,
         'acc': acc
     })
-
-def overlay_results(results: Dict[str, list], output_dir: str = "output_maps"):
-    """
-    Plot and overlay bias, RMSE, and ACC results on a US map for each month.
-
-    Parameters:
-        results (Dict[str, list]): Dictionary with month keys and list of result dicts per month.
-        output_dir (str): Directory where maps will be saved.
-    """
-    import xarray as xr  # Just to be safe that xr is in scope
-
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    for month, stat_list in results.items():
-        for stats in stat_list:
-            lead = stats['lead']
-            for stat_name in ['bias', 'rmse', 'acc']:
-                stat_data = stats[stat_name]
-                # If stat_data is Dataset, select the first variable to plot
-                if isinstance(stat_data, xr.Dataset):
-                    var_name = list(stat_data.data_vars)[0]
-                    stat_data = stat_data[var_name]
-
-                print(f"--- Plotting {stat_name.upper()} for month {month} lead {lead} ---")
-                print(f"Data shape: {stat_data.shape}")
-                print(f"Data dims: {stat_data.dims}")
-                print(f"Data type: {type(stat_data)}")
-                print(f"Min: {stat_data.min().values}")
-                print(f"Max: {stat_data.max().values}")
-                print(f"NaNs present: {stat_data.isnull().any().compute().item()}")
-
-                fig = plt.figure(figsize=(10, 6))
-                ax = plt.axes(projection=ccrs.PlateCarree())
-
-                # Add map features
-                ax.add_feature(cfeature.COASTLINE)
-                ax.add_feature(cfeature.BORDERS, linestyle=':')
-                ax.add_feature(cfeature.STATES, linestyle=':')
-
-                # Plot data
-                im = stat_data.plot(
-                    ax=ax,
-                    transform=ccrs.PlateCarree(),
-                    cmap='coolwarm' if stat_name != 'acc' else 'viridis',
-                    cbar_kwargs={'label': stat_name.upper()},
-                    robust=True
-                )
-
-                ax.set_title(f"{stat_name.upper()} - Month: {calendar.month_name[int(month)]}, Lead: {lead}")
-                ax.set_extent([-125, -66.5, 24, 50], crs=ccrs.PlateCarree())  # Focus on continental US
-
-                # Save figure
-                save_path = os.path.join(output_dir, f"{stat_name}_{month}_lead{lead:.1f}.png")
-                plt.savefig(save_path, bbox_inches='tight')
-                plt.close(fig)
-
-
-
-overlay_results(results)
