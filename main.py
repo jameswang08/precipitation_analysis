@@ -156,3 +156,42 @@ for month in months:
         'rmse': rmse,
         'acc': acc
     })
+
+def plot_metric_on_us_map(data: xr.DataArray, title: str, cmap='RdBu_r'):
+    """
+    Plot spatial data over a US map, clipping color range to 5th–95th percentiles.
+    """
+    plt.figure(figsize=(12, 8))
+
+    ax = plt.axes(projection=ccrs.LambertConformal())
+    ax.set_extent([-125, -66.5, 24, 50], crs=ccrs.PlateCarree())
+
+    ax.add_feature(cfeature.COASTLINE)
+    ax.add_feature(cfeature.BORDERS, linestyle=':')
+    ax.add_feature(cfeature.STATES, linestyle=':')
+
+    # Clip color limits
+    vmin = np.nanpercentile(data, 5)
+    vmax = np.nanpercentile(data, 95)
+
+    img = ax.pcolormesh(
+        data['x'], data['y'], data,
+        cmap=cmap, vmin=vmin, vmax=vmax,
+        transform=ccrs.PlateCarree()
+    )
+
+    plt.title(title, fontsize=16)
+    cb = plt.colorbar(img, ax=ax, orientation='vertical', shrink=0.7, pad=0.02)
+    cb.set_label(title)
+
+    plt.show()
+
+
+month = '01'  # January
+metric = results[month][0]['bias']  # Bias DataArray for January
+
+plot_metric_on_us_map(
+    metric,
+    title=f'Bias for month {month} (Lead=0.5)',
+    cmap='RdBu_r'
+)
