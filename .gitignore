@@ -209,3 +209,6 @@ __marimo__/
 # Data files
 *.nc
 PRISM*
+
+# Used for experimenting with data
+test.py
