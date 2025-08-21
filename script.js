@@ -31,26 +31,27 @@ timescaleSelect.addEventListener("change", () => {
   monthSelector.classList.toggle("hidden", timescaleSelect.value !== "monthly");
 });
 
-// Handle form submit
 document.getElementById("weatherForm").addEventListener("submit", function (e) {
   e.preventDefault();
 
-  const location = document.getElementById("location").value;
-  const statistic = document.getElementById("statistic").value;
+  const location = document.getElementById("location").value.toUpperCase(); // Capitalize region
+  const model = document.getElementById("model").value;
   const lead = document.getElementById("lead").value;
   const timescale = document.getElementById("timescale").value;
+  let statistic = document.getElementById("statistic").value;
 
-  let filename = `${location}_${statistic}_${lead}_${timescale}`;
-
-  // If monthly, use first selected month (or fallback)
+  // Month logic
+  let month = "00"; // Default for yearly
   if (timescale === "monthly") {
     const selectedMonths = Array.from(document.querySelectorAll('input[name="months"]:checked')).map(cb => cb.value);
     if (selectedMonths.length === 0) {
       alert("Please select at least one month.");
       return;
     }
-    filename += `_${selectedMonths[0]}`;
+    month = selectedMonths[0]; // Use first selected
   }
+
+  const filename = `${location}_${model}_${month}_lead${lead}_${statistic}`;
 
   const image = document.getElementById("weatherImage");
   image.src = `images/${filename}.png`;

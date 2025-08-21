@@ -5,18 +5,19 @@ import numpy as np
 import xarray as xr
 import regionmask
 import geopandas as gpd
+import os
 
-def plot_metric_on_us_map(data: xr.DataArray, title: str, cmap='RdBu_r'):
+def plot_metric_on_us_map(data: xr.DataArray, title: str, metric: str, model: str, month: str, lead: float, cmap='RdBu_r'):
     # Load Natural Earth admin-0 countries via geopandas
     world = gpd.read_file('Data/ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp')
     us_shape = world[world['ADMIN'] == 'United States of America'].geometry.values[0]
 
     # Create a regionmask from the US polygon
     mask = regionmask.Regions([us_shape], names=['US'], abbrevs=['US'])
-    
+
     # Create the mask over the data grid
     us_mask = mask.mask(data['x'], data['y'])
-    
+
     # Apply mask: set non-US values to NaN
     data_us_only = data.where(us_mask == 0)
 
@@ -41,4 +42,16 @@ def plot_metric_on_us_map(data: xr.DataArray, title: str, cmap='RdBu_r'):
     plt.title(title, fontsize=16)
     cb = plt.colorbar(img, ax=ax, orientation='vertical', shrink=0.7, pad=0.02)
     cb.set_label(title)
-    plt.show()
+
+    # Create output directory if it doesn't exist
+    output_dir = os.path.join(os.path.dirname(__file__), '..', 'images')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Construct filename
+    filename = f"US_{model}_{month}_lead{lead}_{metric}.png"
+    filepath = os.path.join(output_dir, filename)
+
+    # Save and close
+    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.close()
+    print(f"Plot saved to {filepath}")

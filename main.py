@@ -41,16 +41,30 @@ else:
         model_slice = model_slice.ffill(dim='x').bfill(dim='x').ffill(dim='y').bfill(dim='y')
         baseline_slice = baseline_slice.ffill(dim='x').bfill(dim='x').ffill(dim='y').bfill(dim='y')
 
+        # Intermediary stats used for final output stats
+        baseline_max = baseline_slice['precip'].max(dim='date')
+        baseline_min = baseline_slice['precip'].min(dim='date')
+        baseline_range = baseline_max - baseline_min
         diff = baseline_slice['precip'] - model_slice
-        bias = diff.mean(dim='date')
+        baseline_mean = baseline_slice['precip'].mean(dim='date')
+        model_mean = model_slice.mean(dim='date')
+
+        bias_ratio = model_mean / baseline_mean
         rmse = np.sqrt((diff ** 2).mean(dim='date'))
+        nrmse = rmse / baseline_range
         acc = spatial_anomaly_correlation_coefficient(model_slice, baseline_slice['precip'])
+
+        # Compute monthly averages for baseline and model data
+        baseline_avg = baseline_slice['precip'].mean(dim='date')
+        model_avg = model_slice.mean(dim='date')
 
         results[month].append({
             'lead': LEAD_TIME,
-            'bias': bias,
-            'rmse': rmse,
-            'acc': acc
+            'bias_ratio': bias_ratio,
+            'nrmse': nrmse,
+            'acc': acc,
+            'baseline_avg': baseline_avg,
+            'model_avg': model_avg
         })
 
     # Save to cache
@@ -58,9 +72,28 @@ else:
     dump(results, CACHE_PATH)
     print("Done.")
 
-# --- Example Plot ---
-plot_metric_on_us_map(
-    results['01'][0]['acc'],
-    title='ACC for January (Lead=0.5)',
-    cmap='RdBu_r'
-)
+units = {
+    'baseline_avg': 'mm/month',
+    'model_avg': 'mm/month',
+    'bias_ratio': '',
+    'acc': '',
+    'nrmse': ''
+}
+
+# Generate plots
+for month, metrics in results.items():
+    for metric_name, metric_value in metrics[0].items():
+        if metric_name != 'lead':
+            unit = units.get(metric_name, '')
+            title = f"{metric_name.replace('_', ' ').title()} for {month} and lead={LEAD_TIME}"
+            if unit:
+                title += f" ({unit})"
+
+            plot_metric_on_us_map(
+                metric_value,
+                title=title,
+                metric=metric_name,
+                model=MODEL_NAME,
+                month=month,
+                lead=LEAD_TIME
+            )
