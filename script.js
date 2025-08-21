@@ -31,29 +31,36 @@ timescaleSelect.addEventListener("change", () => {
   monthSelector.classList.toggle("hidden", timescaleSelect.value !== "monthly");
 });
 
+monthSelector.classList.toggle("hidden", timescaleSelect.value !== "monthly");
+
 document.getElementById("weatherForm").addEventListener("submit", function (e) {
   e.preventDefault();
 
-  const location = document.getElementById("location").value.toUpperCase(); // Capitalize region
+  const location = document.getElementById("location").value.toUpperCase();
   const model = document.getElementById("model").value;
   const lead = document.getElementById("lead").value;
   const timescale = document.getElementById("timescale").value;
-  let statistic = document.getElementById("statistic").value;
+  const statistic = document.getElementById("statistic").value;
 
-  // Month logic
-  let month = "00"; // Default for yearly
+  let month = "00";
   if (timescale === "monthly") {
     const selectedMonths = Array.from(document.querySelectorAll('input[name="months"]:checked')).map(cb => cb.value);
     if (selectedMonths.length === 0) {
       alert("Please select at least one month.");
       return;
     }
-    month = selectedMonths[0]; // Use first selected
+    month = selectedMonths[0];
   }
 
-  const filename = `${location}_${model}_${month}_lead${lead}_${statistic}`;
+  // Redirect to view.html with parameters in query string
+  const params = new URLSearchParams({
+    region: location,
+    model: model,
+    lead: lead,
+    month: month,
+    metric: statistic
+  });
 
-  const image = document.getElementById("weatherImage");
-  image.src = `images/${filename}.png`;
-  image.alt = `Weather data: ${filename}`;
+  window.location.href = `view.html?${params.toString()}`;
 });
+
