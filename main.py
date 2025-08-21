@@ -31,10 +31,15 @@ else:
         baseline_slice = baseline_ds.sel(date=baseline_ds['date'].str[-2:] == month)
         model_slice = model_ds.sel(date=model_ds['date'].str[-2:] == month).sel(L=LEAD_TIME)
 
+        # Normalize model coords and interpolate onto baseline
         model_slice = model_slice.rename({'X': 'x', 'Y': 'y'})
         model_slice['x'] = ((model_slice['x'] + 180) % 360) - 180
         model_slice = model_slice.sortby('x')
         model_slice = model_slice.interp(x=baseline_slice.x, y=baseline_slice.y)
+
+        # Interpolate once more to fill remaining NaNs
+        model_slice = model_slice.ffill(dim='x').bfill(dim='x').ffill(dim='y').bfill(dim='y')
+        baseline_slice = baseline_slice.ffill(dim='x').bfill(dim='x').ffill(dim='y').bfill(dim='y')
 
         diff = baseline_slice['precip'] - model_slice
         bias = diff.mean(dim='date')
