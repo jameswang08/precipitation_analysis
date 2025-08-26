@@ -41,7 +41,6 @@ def plot_metric_on_us_map(data: xr.DataArray, title: str, metric: str, model: st
 
     plt.title(title, fontsize=16)
     cb = plt.colorbar(img, ax=ax, orientation='vertical', shrink=0.7, pad=0.02)
-    cb.set_label(title)
 
     # Create output directory if it doesn't exist
     output_dir = os.path.join(os.path.dirname(__file__), '..', 'images')
