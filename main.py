@@ -31,15 +31,16 @@ else:
         baseline_slice = baseline_ds.sel(date=baseline_ds['date'].str[-2:] == month)
         model_slice = model_ds.sel(date=model_ds['date'].str[-2:] == month).sel(L=LEAD_TIME)
 
-        # Normalize model coords and interpolate onto baseline
+        # Normalize model coords
         model_slice = model_slice.rename({'X': 'x', 'Y': 'y'})
         model_slice['x'] = ((model_slice['x'] + 180) % 360) - 180
         model_slice = model_slice.sortby('x')
-        model_slice = model_slice.interp(x=baseline_slice.x, y=baseline_slice.y)
 
         # Interpolate once more to fill remaining NaNs
-        model_slice = model_slice.ffill(dim='x').bfill(dim='x').ffill(dim='y').bfill(dim='y')
         baseline_slice = baseline_slice.ffill(dim='x').bfill(dim='x').ffill(dim='y').bfill(dim='y')
+
+        # Interpolate onto model grid
+        baseline_slice = baseline_slice.interp(x=model_slice.x, y=model_slice.y)
 
         # Intermediary stats used for final output stats
         baseline_max = baseline_slice['precip'].max(dim='date')
@@ -80,12 +81,22 @@ units = {
     'nrmse': ''
 }
 
+month_map = {
+    '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
+    '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug',
+    '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'
+}
+
 # Generate plots
 for month, metrics in results.items():
     for metric_name, metric_value in metrics[0].items():
         if metric_name != 'lead':
             unit = units.get(metric_name, '')
-            title = f"{metric_name.replace('_', ' ').title()} for {month} and lead={LEAD_TIME}"
+            title = f"{metric_name.replace('_', ' ').title()} for {month_map[month]} with lead={LEAD_TIME}"
+            if metric_name == "baseline_avg":
+                title = "PRISM " + title
+            else:
+                title = MODEL_NAME + " " + title
             if unit:
                 title += f" ({unit})"
 
