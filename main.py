@@ -22,19 +22,48 @@ else:
     baseline_ds = load_baseline_data()
     model_ds = load_model_data(MODEL_NAME)
 
-    months = sorted(set(d[4:6] for d in baseline_ds['date'].values.astype(str)))
     results = defaultdict(list)
 
-    for month in months:
-        print(f"Processing month: {month}")
+    # month_groups = [
+    #     (1, 2, 3),
+    #     (4, 5, 6),
+    #     (7, 8, 9),
+    #     (10, 11, 12)
+    # ]
 
-        baseline_slice = baseline_ds.sel(date=baseline_ds['date'].str[-2:] == month)
-        model_slice = model_ds.sel(date=model_ds['date'].str[-2:] == month).sel(L=LEAD_TIME)
+    # month_map = {
+    #     (1, 2, 3): "Jan-Mar",
+    #     (4, 5, 6): "Apr-Jun",
+    #     (7, 8, 9): "Jul-Sep",
+    #     (10, 11, 12): "Oct-Dec"
+    # }
 
-        # Normalize model coords
-        model_slice = model_slice.rename({'X': 'x', 'Y': 'y'})
-        model_slice['x'] = ((model_slice['x'] + 180) % 360) - 180
-        model_slice = model_slice.sortby('x')
+    month_groups = [(m,) for m in range(1, 13)]
+
+    month_map = {
+        (1,): "January",
+        (2,): "February",
+        (3,): "March",
+        (4,): "April",
+        (5,): "May",
+        (6,): "June",
+        (7,): "July",
+        (8,): "August",
+        (9,): "September",
+        (10,): "October",
+        (11,): "November",
+        (12,): "December"
+    }
+
+    for group in month_groups:
+        print(f"Processing months: {group}")
+
+        baseline_group = baseline_ds.where(baseline_ds['date'].dt.month.isin(group), drop=True)
+        model_group = model_ds.where(model_ds['date'].dt.month.isin(group), drop=True).sel(L=LEAD_TIME)
+
+        baseline_slice = baseline_group.groupby('date.year').mean(dim='date')
+        model_slice = model_group.groupby('date.year').mean(dim='date')
+
 
         # Interpolate once more to fill remaining NaNs
         baseline_slice = baseline_slice.ffill(dim='x').bfill(dim='x').ffill(dim='y').bfill(dim='y')
@@ -43,23 +72,23 @@ else:
         baseline_slice = baseline_slice.interp(x=model_slice.x, y=model_slice.y)
 
         # Intermediary stats used for final output stats
-        baseline_max = baseline_slice['precip'].max(dim='date')
-        baseline_min = baseline_slice['precip'].min(dim='date')
+        baseline_max = baseline_slice['precip'].max(dim='year')
+        baseline_min = baseline_slice['precip'].min(dim='year')
         baseline_range = baseline_max - baseline_min
         diff = baseline_slice['precip'] - model_slice
-        baseline_mean = baseline_slice['precip'].mean(dim='date')
-        model_mean = model_slice.mean(dim='date')
+        baseline_mean = baseline_slice['precip'].mean(dim='year')
+        model_mean = model_slice.mean(dim='year')
 
         bias_ratio = model_mean / baseline_mean
-        rmse = np.sqrt((diff ** 2).mean(dim='date'))
+        rmse = np.sqrt((diff ** 2).mean(dim='year'))
         nrmse = rmse / baseline_range
-        acc = spatial_anomaly_correlation_coefficient(model_slice, baseline_slice['precip'])
+        acc = spatial_anomaly_correlation_coefficient(model_slice, baseline_slice['precip'], "year")
 
         # Compute monthly averages for baseline and model data
-        baseline_avg = baseline_slice['precip'].mean(dim='date')
-        model_avg = model_slice.mean(dim='date')
+        baseline_avg = baseline_slice['precip'].mean(dim='year')
+        model_avg = model_slice.mean(dim='year')
 
-        results[month].append({
+        results[month_map[group]].append({
             'lead': LEAD_TIME,
             'bias_ratio': bias_ratio,
             'nrmse': nrmse,
@@ -81,22 +110,16 @@ units = {
     'nrmse': ''
 }
 
-month_map = {
-    '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
-    '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug',
-    '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'
-}
-
 # Generate plots
-for month, metrics in results.items():
+for group, metrics in results.items():
     for metric_name, metric_value in metrics[0].items():
         if metric_name != 'lead':
             unit = units.get(metric_name, '')
-            title = f"{metric_name.replace('_', ' ').title()} for {month_map[month]} with lead={LEAD_TIME}"
+            title = f"{metric_name.replace('_', ' ').title()} for {group}"
             if metric_name == "baseline_avg":
                 title = "PRISM " + title
             else:
-                title = MODEL_NAME + " " + title
+                title = MODEL_NAME + " " + title + f" with lead={LEAD_TIME}"
             if unit:
                 title += f" ({unit})"
 
@@ -105,6 +128,6 @@ for month, metrics in results.items():
                 title=title,
                 metric=metric_name,
                 model=MODEL_NAME,
-                month=month,
+                month=group,
                 lead=LEAD_TIME
             )
