@@ -24,16 +24,18 @@ select, button {
   margin-top: 5px;
 }
 
-#months {
+#months, #seasons {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 10px;
 }
 
-#months label {
-  font-weight: normal;
+#months label,
+#seasons label {
+  font-weight: normal !important;
 }
+
 
 .hidden {
   display: none;

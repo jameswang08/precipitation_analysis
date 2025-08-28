@@ -1,3 +1,5 @@
+const timescaleSelect = document.getElementById("timescale");
+
 // Populate lead time options
 const leadSelect = document.getElementById("lead");
 for (let i = 0.5; i <= 11.5; i += 1.0) {
@@ -25,13 +27,29 @@ monthNames.forEach((name, index) => {
   monthsDiv.appendChild(label);
 });
 
-// Show/hide month selector based on timescale
-const timescaleSelect = document.getElementById("timescale");
+// Populate season checkboxes
+const seasonSelector = document.getElementById("seasonSelector");
+const seasonsDiv = document.getElementById("seasons");
+const seasonNames = ["Jan-Mar", "Apr-Jun", "Jul-Sep", "Oct-Dec"];
+seasonNames.forEach((name, index) => {
+  const label = document.createElement("label");
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.name = "seasons";
+  checkbox.value = name;
+  label.appendChild(checkbox);
+  label.appendChild(document.createTextNode(` ${name}`));
+  seasonsDiv.appendChild(label);
+});
+
+// Show/hide selectors based on timescale
 timescaleSelect.addEventListener("change", () => {
   monthSelector.classList.toggle("hidden", timescaleSelect.value !== "monthly");
+  seasonSelector.classList.toggle("hidden", timescaleSelect.value !== "seasonal");
 });
 
 monthSelector.classList.toggle("hidden", timescaleSelect.value !== "monthly");
+seasonSelector.classList.toggle("hidden", timescaleSelect.value !== "seasonal");
 
 document.getElementById("weatherForm").addEventListener("submit", function (e) {
   e.preventDefault();
@@ -50,6 +68,13 @@ document.getElementById("weatherForm").addEventListener("submit", function (e) {
       return;
     }
     month = selectedMonths[0];
+  } else if (timescale === "seasonal") {
+    const selectedSeasons = Array.from(document.querySelectorAll('input[name="seasons"]:checked')).map(cb => cb.value);
+    if (selectedSeasons.length === 0) {
+      alert("Please select at least one season.");
+      return;
+    }
+    month = selectedSeasons[0];
   }
 
   // Redirect to view.html with parameters in query string
