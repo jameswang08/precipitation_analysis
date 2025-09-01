@@ -1,10 +1,11 @@
 import React from 'react';
 import './App.css';
+import WeatherForm from './components/WeatherForm';
 
 function App() {
   return (
     <div className="App">
-      Hello World
+      <WeatherForm />
     </div>
   );
 }
