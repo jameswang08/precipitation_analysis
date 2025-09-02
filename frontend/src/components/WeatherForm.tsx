@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import SimpleSelect from './SimpleSelect';
+import './WeatherForm.css';
 
 const regions = [
     { value: 'us', label: "United States" }

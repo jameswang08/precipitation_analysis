@@ -1,0 +1,44 @@
+.WeatherForm {
+    max-width: 500px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.WeatherForm form {
+    display: flex;
+    flex-direction: column; /* Stack items vertically */
+    gap: 1.5rem; /* Add vertical spacing between fields */
+}
+
+.WeatherForm label {
+    display: flex;
+    flex-direction: column; /* Stack label text and input vertically */
+    font-weight: 600;
+    color: #333;
+}
+
+.SimpleSelect {
+    margin-top: 0.5rem;
+}
+
+.WeatherForm select,
+.WeatherForm .SimpleSelect select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.WeatherForm select:focus,
+.WeatherForm .SimpleSelect select:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+}
