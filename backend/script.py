@@ -3,12 +3,25 @@ from utils.metrics import spatial_anomaly_correlation_coefficient
 from utils.plotting import plot_metric_on_us_map
 from collections import defaultdict
 import numpy as np
+import argparse
 import os
 from joblib import dump, load
 
-MODEL_NAME = 'CanCM4i'
-LEAD_TIME = 0.5
-CACHE_PATH = f'cache/{MODEL_NAME}_lead{LEAD_TIME}_metrics.joblib'
+parser = argparse.ArgumentParser(description="Process model parameters.")
+parser.add_argument('region', type=str, help='Region name')
+parser.add_argument('model', type=str, help='Model name')
+parser.add_argument('lead_time', type=float, help='Lead time')
+parser.add_argument('time_scale', type=str, help='Time scale')
+args = parser.parse_args()
+
+REGION = args.region
+MODEL_NAME = args.model
+LEAD_TIME = args.lead_time
+TIME_SCALE = args.time_scale
+if TIME_SCALE.lower() == 'seasonal':
+    CACHE_PATH = f'cache/{MODEL_NAME}_seasonal_lead{LEAD_TIME}_metrics.joblib'
+else:
+    CACHE_PATH = f'cache/{MODEL_NAME}_lead{LEAD_TIME}_metrics.joblib'
 
 os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
 
@@ -24,36 +37,39 @@ else:
 
     results = defaultdict(list)
 
-    # month_groups = [
-    #     (1, 2, 3),
-    #     (4, 5, 6),
-    #     (7, 8, 9),
-    #     (10, 11, 12)
-    # ]
+    if TIME_SCALE.lower() == 'seasonal':
+        month_groups = [
+            (1, 2, 3),
+            (4, 5, 6),
+            (7, 8, 9),
+            (10, 11, 12)
+        ]
 
-    # month_map = {
-    #     (1, 2, 3): "Jan-Mar",
-    #     (4, 5, 6): "Apr-Jun",
-    #     (7, 8, 9): "Jul-Sep",
-    #     (10, 11, 12): "Oct-Dec"
-    # }
+        month_map = {
+            (1, 2, 3): "Jan-Mar",
+            (4, 5, 6): "Apr-Jun",
+            (7, 8, 9): "Jul-Sep",
+            (10, 11, 12): "Oct-Dec"
+        }
 
-    month_groups = [(m,) for m in range(1, 13)]
+    else:
+        month_groups = [(m,) for m in range(1, 13)]
 
-    month_map = {
-        (1,): "January",
-        (2,): "February",
-        (3,): "March",
-        (4,): "April",
-        (5,): "May",
-        (6,): "June",
-        (7,): "July",
-        (8,): "August",
-        (9,): "September",
-        (10,): "October",
-        (11,): "November",
-        (12,): "December"
-    }
+        month_map = {
+            (1,): "January",
+            (2,): "February",
+            (3,): "March",
+            (4,): "April",
+            (5,): "May",
+            (6,): "June",
+            (7,): "July",
+            (8,): "August",
+            (9,): "September",
+            (10,): "October",
+            (11,): "November",
+            (12,): "December"
+        }
+
 
     for group in month_groups:
         print(f"Processing months: {group}")
@@ -63,7 +79,6 @@ else:
 
         baseline_slice = baseline_group.groupby('date.year').mean(dim='date')
         model_slice = model_group.groupby('date.year').mean(dim='date')
-
 
         # Interpolate once more to fill remaining NaNs
         baseline_slice = baseline_slice.ffill(dim='x').bfill(dim='x').ffill(dim='y').bfill(dim='y')
@@ -110,24 +125,24 @@ units = {
     'nrmse': ''
 }
 
-# Generate plots
-for group, metrics in results.items():
-    for metric_name, metric_value in metrics[0].items():
-        if metric_name != 'lead':
-            unit = units.get(metric_name, '')
-            title = f"{metric_name.replace('_', ' ').title()} for {group}"
-            if metric_name == "baseline_avg":
-                title = "PRISM " + title
-            else:
-                title = MODEL_NAME + " " + title + f" with lead={LEAD_TIME}"
-            if unit:
-                title += f" ({unit})"
+# # Generate plots
+# for group, metrics in results.items():
+#     for metric_name, metric_value in metrics[0].items():
+#         if metric_name != 'lead':
+#             unit = units.get(metric_name, '')
+#             title = f"{metric_name.replace('_', ' ').title()} for {group}"
+#             if metric_name == "baseline_avg":
+#                 title = "PRISM " + title
+#             else:
+#                 title = MODEL_NAME + " " + title + f" with lead={LEAD_TIME}"
+#             if unit:
+#                 title += f" ({unit})"
 
-            plot_metric_on_us_map(
-                metric_value,
-                title=title,
-                metric=metric_name,
-                model=MODEL_NAME,
-                month=group,
-                lead=LEAD_TIME
-            )
+#             plot_metric_on_us_map(
+#                 metric_value,
+#                 title=title,
+#                 metric=metric_name,
+#                 model=MODEL_NAME,
+#                 month=group,
+#                 lead=LEAD_TIME
+#             )
