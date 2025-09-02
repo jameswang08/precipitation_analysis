@@ -52,9 +52,32 @@ const WeatherForm: React.FC = () => {
         setSelectedTimeScale(value);
     };
 
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        fetch('/your-backend-url/submit', {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                region: selectedRegion,
+                model: selectedModel,
+                lead_time: selectedLeadTime,
+                time_scale: selectedTimeScale
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log('Submitted successfully:', data);
+        })
+        .catch(err => {
+            console.error('Submission error:', err);
+        });
+    };
+
     return (
         <div className="WeatherForm">
-            <form>
+            <form onSubmit={handleSubmit}>
                 <label>
                     Region:
                     <SimpleSelect
@@ -88,6 +111,7 @@ const WeatherForm: React.FC = () => {
                     />
                 </label>
 
+                <button type="submit" className="submit-button">Submit</button>
             </form>
         </div>
     )
