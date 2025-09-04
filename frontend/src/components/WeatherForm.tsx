@@ -31,18 +31,18 @@ const time_scale = [
 ];
 
 const months = [
-    { value: 'jan', label: 'January' },
-    { value: 'feb', label: 'February' },
-    { value: 'mar', label: 'March' },
-    { value: 'apr', label: 'April' },
-    { value: 'may', label: 'May' },
-    { value: 'jun', label: 'June' },
-    { value: 'jul', label: 'July' },
-    { value: 'aug', label: 'August' },
-    { value: 'sep', label: 'September' },
-    { value: 'oct', label: 'October' },
-    { value: 'nov', label: 'November' },
-    { value: 'dec', label: 'December' },
+    { value: 'Jan', label: 'January' },
+    { value: 'Feb', label: 'February' },
+    { value: 'Mar', label: 'March' },
+    { value: 'Apr', label: 'April' },
+    { value: 'May', label: 'May' },
+    { value: 'Jun', label: 'June' },
+    { value: 'Jul', label: 'July' },
+    { value: 'Aug', label: 'August' },
+    { value: 'Sep', label: 'September' },
+    { value: 'Oct', label: 'October' },
+    { value: 'Nov', label: 'November' },
+    { value: 'Dec', label: 'December' },
 ];
 
 const seasons = [
@@ -61,6 +61,10 @@ const WeatherForm: React.FC = () => {
     const [selectedMonth, setSelectedMonth] = useState<string>(months[0].value);
     const [selectedSeason, setSelectedSeason] = useState<string>(seasons[0].value);
 
+    const [plotUrls, setPlotUrls] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
     const handleRegionChange = (value: string) => setSelectedRegion(value);
     const handleModelChange = (value: string) => setSelectedModel(value);
     const handleLeadTimeChange = (value: string) => setSelectedLeadTime(value);
@@ -68,37 +72,53 @@ const WeatherForm: React.FC = () => {
     const handleMonthChange = (value: string) => setSelectedMonth(value);
     const handleSeasonChange = (value: string) => setSelectedSeason(value);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (e: React.FormEvent) => {
+            e.preventDefault();
+            setIsLoading(true);
+            setError(null);
+            setPlotUrls([]); // Clear previous plots
 
-        const requestBody: any = {
-            region: selectedRegion,
-            model: selectedModel,
-            lead_time: selectedLeadTime,
-            time_scale: selectedTimeScale
-        };
+            const requestBody: any = {
+                region: selectedRegion,
+                model: selectedModel,
+                lead_time: selectedLeadTime,
+                time_scale: selectedTimeScale
+            };
 
-        if (selectedTimeScale === 'monthly') {
-            requestBody.month = selectedMonth;
-        } else if (selectedTimeScale === 'seasonal') {
-            requestBody.season = selectedSeason;
-        }
+            if (selectedTimeScale === 'monthly') {
+                requestBody.month = selectedMonth;
+            } else if (selectedTimeScale === 'seasonal') {
+                requestBody.month = selectedSeason;
+            }
 
-        fetch('http://localhost:5000/submit', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody)
-        })
-            .then(res => res.json())
-            .then(data => {
-                console.log('Submitted successfully:', data);
-            })
-            .catch(err => {
+            try {
+                const response = await fetch('http://localhost:8000/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody),
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log('Submitted successfully:', data);
+                    // Convert relative paths to full URLs
+                    const fullUrls = data.plots.map((url: string) => 
+                        `http://localhost:8000${url}`
+                    );
+                    setPlotUrls(fullUrls);
+                } else {
+                    setError(data.error || 'Unknown error occurred');
+                }
+            } catch (err) {
                 console.error('Submission error:', err);
-            });
-    };
+                setError('Failed to submit request');
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
     return (
         <div className="WeatherForm">
@@ -160,6 +180,44 @@ const WeatherForm: React.FC = () => {
 
                 <button type="submit" className="submit-button">Submit</button>
             </form>
+            {/* Error Display */}
+            {error && (
+                <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                    <strong>Error:</strong> {error}
+                </div>
+            )}
+
+            {/* Loading Indicator */}
+            {isLoading && (
+                <div className="text-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p className="mt-2 text-gray-600">Generating plots...</p>
+                </div>
+            )}
+
+            {/* Plot Display */}
+            {plotUrls.length > 0 && (
+                <div>
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">
+                        Analysis Results ({plotUrls.length} plots)
+                    </h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {plotUrls.map((url, index) => (
+                            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <img 
+                                    src={url} 
+                                    alt={`Weather plot ${index + 1}`}
+                                    className="w-full h-auto rounded shadow-sm"
+                                    onError={() => {
+                                        console.error(`Failed to load image: ${url}`);
+                                    }}
+                                />
+                                <p className="text-xs text-gray-500 mt-2 break-all">{url}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
