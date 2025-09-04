@@ -6,6 +6,8 @@ function App() {
   return (
     <div className="App">
       <WeatherForm />
+      <div className="Images">
+      </div>
     </div>
   );
 }

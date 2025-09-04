@@ -8,10 +8,14 @@ body {
 
 .App {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
     padding: 2rem;
     box-sizing: border-box;
+}
+
+.Images {
+    flex: 1 1 0;
 }

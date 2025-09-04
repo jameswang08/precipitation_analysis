@@ -136,6 +136,15 @@ print(results.keys())
 # Generate plots
 for metric_name, metric_value in results[MONTH].items():
     print(f"Processing metric: {metric_name}")
+
+    filename = f"US_{MODEL_NAME}_{MONTH}_lead{LEAD_TIME}_{metric_name}.png"
+    filepath = os.path.join('./images', filename)
+
+    if os.path.exists(filepath):
+        print(f"Skipping plot generation for {filename} (already exists).")
+        print(f"::PLOT::{os.path.abspath(filepath)}")
+        continue
+
     if metric_name != 'lead':
         unit = units.get(metric_name, '')
         title = f"{metric_name.replace('_', ' ').title()} for {MONTH}"
