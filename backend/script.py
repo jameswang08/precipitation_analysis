@@ -1,7 +1,6 @@
 from utils.io import load_model_data, load_baseline_data
 from utils.metrics import spatial_anomaly_correlation_coefficient
 from utils.plotting import plot_metric_on_us_map
-from collections import defaultdict
 import numpy as np
 import argparse
 import os
@@ -12,12 +11,15 @@ parser.add_argument('region', type=str, help='Region name')
 parser.add_argument('model', type=str, help='Model name')
 parser.add_argument('lead_time', type=float, help='Lead time')
 parser.add_argument('time_scale', type=str, help='Time scale')
+parser.add_argument('month', type=str, help='Month or season')
 args = parser.parse_args()
 
 REGION = args.region
 MODEL_NAME = args.model
 LEAD_TIME = args.lead_time
 TIME_SCALE = args.time_scale
+MONTH = args.month
+
 if TIME_SCALE.lower() == 'seasonal':
     CACHE_PATH = f'cache/{MODEL_NAME}_seasonal_lead{LEAD_TIME}_metrics.joblib'
 else:
@@ -35,7 +37,7 @@ else:
     baseline_ds = load_baseline_data()
     model_ds = load_model_data(MODEL_NAME)
 
-    results = defaultdict(list)
+    results = {}
 
     if TIME_SCALE.lower() == 'seasonal':
         month_groups = [
@@ -56,18 +58,18 @@ else:
         month_groups = [(m,) for m in range(1, 13)]
 
         month_map = {
-            (1,): "January",
-            (2,): "February",
-            (3,): "March",
-            (4,): "April",
+            (1,): "Jan",
+            (2,): "Feb",
+            (3,): "Mar",
+            (4,): "Apr",
             (5,): "May",
-            (6,): "June",
-            (7,): "July",
-            (8,): "August",
-            (9,): "September",
-            (10,): "October",
-            (11,): "November",
-            (12,): "December"
+            (6,): "Jun",
+            (7,): "Jul",
+            (8,): "Aug",
+            (9,): "Sep",
+            (10,): "Oct",
+            (11,): "Nov",
+            (12,): "Dec"
         }
 
 
@@ -103,14 +105,16 @@ else:
         baseline_avg = baseline_slice['precip'].mean(dim='year')
         model_avg = model_slice.mean(dim='year')
 
-        results[month_map[group]].append({
+        print(month_map[group])
+
+        results[month_map[group]] = {
             'lead': LEAD_TIME,
             'bias_ratio': bias_ratio,
             'nrmse': nrmse,
             'acc': acc,
             'baseline_avg': baseline_avg,
             'model_avg': model_avg
-        })
+        }
 
     # Save to cache
     print(f"Caching results to {CACHE_PATH}...")
@@ -125,24 +129,29 @@ units = {
     'nrmse': ''
 }
 
-# # Generate plots
-# for group, metrics in results.items():
-#     for metric_name, metric_value in metrics[0].items():
-#         if metric_name != 'lead':
-#             unit = units.get(metric_name, '')
-#             title = f"{metric_name.replace('_', ' ').title()} for {group}"
-#             if metric_name == "baseline_avg":
-#                 title = "PRISM " + title
-#             else:
-#                 title = MODEL_NAME + " " + title + f" with lead={LEAD_TIME}"
-#             if unit:
-#                 title += f" ({unit})"
+print("test1")
+print(MONTH)
+print(results.keys())
 
-#             plot_metric_on_us_map(
-#                 metric_value,
-#                 title=title,
-#                 metric=metric_name,
-#                 model=MODEL_NAME,
-#                 month=group,
-#                 lead=LEAD_TIME
-#             )
+# Generate plots
+for metric_name, metric_value in results[MONTH].items():
+    print(f"Processing metric: {metric_name}")
+    if metric_name != 'lead':
+        unit = units.get(metric_name, '')
+        title = f"{metric_name.replace('_', ' ').title()} for {MONTH}"
+        if metric_name == "baseline_avg":
+            title = "PRISM " + title
+        else:
+            title = MODEL_NAME + " " + title + f" with lead={LEAD_TIME}"
+        if unit:
+            title += f" ({unit})"
+
+        print(f"Calling plot_metric_on_us_map for {metric_name}")
+        plot_metric_on_us_map(
+            metric_value,
+            title=title,
+            metric=metric_name,
+            model=MODEL_NAME,
+            month=MONTH,
+            lead=LEAD_TIME
+        )

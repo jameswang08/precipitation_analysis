@@ -53,4 +53,4 @@ def plot_metric_on_us_map(data: xr.DataArray, title: str, metric: str, model: st
     # Save and close
     plt.savefig(filepath, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Plot saved to {filepath}")
+    print(f"::PLOT::{os.path.abspath(filepath)}")
