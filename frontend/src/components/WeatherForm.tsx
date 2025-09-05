@@ -52,7 +52,7 @@ const seasons = [
     { value: 'Oct-Dec', label: 'Oct-Dec' },
 ];
 
-const WeatherForm: React.FC = () => {
+const WeatherForm: React.FC<WeatherFormProps> = ({ setPlotUrls }) => {
     const [selectedRegion, setSelectedRegion] = useState(regions[0].value);
     const [selectedModel, setSelectedModel] = useState(models[0].value);
     const [selectedLeadTime, setSelectedLeadTime] = useState(lead_times[0].value);
@@ -61,7 +61,6 @@ const WeatherForm: React.FC = () => {
     const [selectedMonth, setSelectedMonth] = useState<string>(months[0].value);
     const [selectedSeason, setSelectedSeason] = useState<string>(seasons[0].value);
 
-    const [plotUrls, setPlotUrls] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -76,7 +75,7 @@ const WeatherForm: React.FC = () => {
             e.preventDefault();
             setIsLoading(true);
             setError(null);
-            setPlotUrls([]); // Clear previous plots
+            setPlotUrls([]);
 
             const requestBody: any = {
                 region: selectedRegion,
@@ -99,13 +98,13 @@ const WeatherForm: React.FC = () => {
                     },
                     body: JSON.stringify(requestBody),
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     console.log('Submitted successfully:', data);
                     // Convert relative paths to full URLs
-                    const fullUrls = data.plots.map((url: string) => 
+                    const fullUrls = data.plots.map((url: string) =>
                         `http://localhost:8000${url}`
                     );
                     setPlotUrls(fullUrls);
@@ -194,32 +193,12 @@ const WeatherForm: React.FC = () => {
                     <p className="mt-2 text-gray-600">Generating plots...</p>
                 </div>
             )}
-
-            {/* Plot Display */}
-            {plotUrls.length > 0 && (
-                <div>
-                    <h2 className="text-xl font-semibold mb-4 text-gray-800">
-                        Analysis Results ({plotUrls.length} plots)
-                    </h2>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {plotUrls.map((url, index) => (
-                            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                                <img 
-                                    src={url} 
-                                    alt={`Weather plot ${index + 1}`}
-                                    className="w-full h-auto rounded shadow-sm"
-                                    onError={() => {
-                                        console.error(`Failed to load image: ${url}`);
-                                    }}
-                                />
-                                <p className="text-xs text-gray-500 mt-2 break-all">{url}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
         </div>
     );
+};
+
+type WeatherFormProps = {
+    setPlotUrls: (urls: string[]) => void;
 };
 
 export default WeatherForm;
