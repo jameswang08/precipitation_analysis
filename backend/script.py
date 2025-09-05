@@ -89,23 +89,18 @@ else:
         baseline_slice = baseline_slice.interp(x=model_slice.x, y=model_slice.y)
 
         # Intermediary stats used for final output stats
-        baseline_max = baseline_slice['precip'].max(dim='year')
-        baseline_min = baseline_slice['precip'].min(dim='year')
-        baseline_range = baseline_max - baseline_min
         diff = baseline_slice['precip'] - model_slice
         baseline_mean = baseline_slice['precip'].mean(dim='year')
         model_mean = model_slice.mean(dim='year')
 
         bias_ratio = model_mean / baseline_mean
         rmse = np.sqrt((diff ** 2).mean(dim='year'))
-        nrmse = rmse / baseline_range
+        nrmse = rmse / baseline_mean
         acc = spatial_anomaly_correlation_coefficient(model_slice, baseline_slice['precip'], "year")
 
         # Compute monthly averages for baseline and model data
         baseline_avg = baseline_slice['precip'].mean(dim='year')
         model_avg = model_slice.mean(dim='year')
-
-        print(month_map[group])
 
         results[month_map[group]] = {
             'lead': LEAD_TIME,
@@ -128,10 +123,6 @@ units = {
     'acc': '',
     'nrmse': ''
 }
-
-print("test1")
-print(MONTH)
-print(results.keys())
 
 # Generate plots
 for metric_name, metric_value in results[MONTH].items():
