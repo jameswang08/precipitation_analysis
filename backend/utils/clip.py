@@ -1,6 +1,6 @@
 import os
 
-directory = '../Data/BaselineCleaned'
+directory = './Data/BaselineCleaned'
 
 for filename in os.listdir(directory):
     if filename.endswith('.nc'):

@@ -1,9 +1,9 @@
 # Script to convert bil files into NetCDF format for future processing.
-
 import os
 from glob import glob
-import rioxarray as rxr # type: ignore
-import xarray as xr # type: ignore
+import rioxarray as rxr
+import xarray as xr
+import pandas as pd
 
 root = 'Data/Baseline'
 output_dir = 'Data/BaselineCleaned'
@@ -25,6 +25,7 @@ for year in years:
             print(f"Skipping year summary file: {filename}")
             continue
 
+        dt_date = pd.to_datetime(file_date, format='%Y%m')
         print(f"Processing {bil_file}")
 
         ds = rxr.open_rasterio(bil_file)
@@ -35,7 +36,7 @@ for year in years:
 
         # Add date as a coordinate (string) to the dataset
         ds_clean = ds_clean.expand_dims('date')
-        ds_clean = ds_clean.assign_coords(date=[file_date])
+        ds_clean = ds_clean.assign_coords(date=[dt_date])
 
         final_nc = os.path.join(output_dir, f"{file_date}.nc")
         ds_clean.to_netcdf(final_nc)
