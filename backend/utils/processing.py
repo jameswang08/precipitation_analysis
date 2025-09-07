@@ -1,7 +1,9 @@
 import xarray as xr
 import pandas as pd
 import calendar
+import math
 from typing import Union
+from dateutil.relativedelta import relativedelta
 
 def convert_precip(ds: xr.DataArray, time_dim='S') -> xr.DataArray:
     months_since_1960 = ds[time_dim].values
@@ -21,10 +23,13 @@ def convert_time(ds: xr.Dataset | xr.DataArray, time_dim='S') -> Union[xr.DataAr
     ds = ds.drop_vars(time_dim)
     return ds
 
-def calculate_baseline(date: str, lead: float) -> str:
-    year = int(date[:4])
-    month = int(date[4:6]) + int(lead)
-    if month > 12:
-        year += 1
-        month -= 11
-    return f"{year}{month:02d}"
+def clip_baseline(baseline: xr.Dataset | xr.DataArray, lead_time: int, start_year: int = 1981, end_year: int = 2018) -> Union[xr.DataArray, xr.Dataset]:
+    timedelta = math.floor(lead_time)
+    new_dates = [pd.Timestamp(dt) - relativedelta(months=timedelta) for dt in baseline['date'].values]
+    baseline = baseline.assign_coords(date=new_dates)
+
+    years = baseline['date'].dt.year
+    mask = (years >= start_year) & (years <= end_year)
+    baseline = baseline.sel(date=mask)
+
+    return baseline
