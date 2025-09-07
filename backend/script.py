@@ -79,8 +79,14 @@ else:
         "Dec": (12,)
     }
 
-temp = (( reverse_month_map[MONTH][0] + math.floor(LEAD_TIME) - 1) % 12 ) + 1
-MONTH = month_map[(temp,)]
+start_month = reverse_month_map[MONTH][0]
+target_month = ((start_month + math.floor(LEAD_TIME) - 1) % 12) + 1
+
+for group in month_groups:
+    if target_month in group:
+        MONTH = month_map[group]
+        break
+
 
 os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
 
