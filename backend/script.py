@@ -1,10 +1,13 @@
 from utils.io import load_model_data, load_baseline_data
-from utils.metrics import spatial_anomaly_correlation_coefficient
+from utils.metrics import spatial_anomaly_correlation_coefficient, normalized_root_mean_square_error, normalized_mean_absolute_difference
 from utils.plotting import plot_metric_on_us_map
+from utils.processing import clip_baseline
 import numpy as np
 import argparse
 import os
+import math
 from joblib import dump, load
+from sklearn.metrics import f1_score
 
 parser = argparse.ArgumentParser(description="Process model parameters.")
 parser.add_argument('region', type=str, help='Region name')
@@ -22,8 +25,62 @@ MONTH = args.month
 
 if TIME_SCALE.lower() == 'seasonal':
     CACHE_PATH = f'cache/{MODEL_NAME}_seasonal_lead{LEAD_TIME}_metrics.joblib'
+    month_groups = [
+        (1, 2, 3),
+        (4, 5, 6),
+        (7, 8, 9),
+        (10, 11, 12)
+    ]
+
+    month_map = {
+        (1, 2, 3): "Jan-Mar",
+        (4, 5, 6): "Apr-Jun",
+        (7, 8, 9): "Jul-Sep",
+        (10, 11, 12): "Oct-Dec"
+    }
+
+    reverse_month_map = {
+        "Jan-Mar": (1, 2, 3),
+        "Apr-Jun": (4, 5, 6),
+        "Jul-Sep": (7, 8, 9),
+        "Oct-Dec": (10, 11, 12)
+    }
 else:
     CACHE_PATH = f'cache/{MODEL_NAME}_lead{LEAD_TIME}_metrics.joblib'
+    month_groups = [(m,) for m in range(1, 13)]
+
+    month_map = {
+        (1,): "Jan",
+        (2,): "Feb",
+        (3,): "Mar",
+        (4,): "Apr",
+        (5,): "May",
+        (6,): "Jun",
+        (7,): "Jul",
+        (8,): "Aug",
+        (9,): "Sep",
+        (10,): "Oct",
+        (11,): "Nov",
+        (12,): "Dec"
+    }
+
+    reverse_month_map = {
+        "Jan": (1,),
+        "Feb": (2,),
+        "Mar": (3,),
+        "Apr": (4,),
+        "May": (5,),
+        "Jun": (6,),
+        "Jul": (7,),
+        "Aug": (8,),
+        "Sep": (9,),
+        "Oct": (10,),
+        "Nov": (11,),
+        "Dec": (12,)
+    }
+
+temp = (( reverse_month_map[MONTH][0] + math.floor(LEAD_TIME) - 1) % 12 ) + 1
+MONTH = month_map[(temp,)]
 
 os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
 
@@ -35,43 +92,10 @@ else:
     print("No cache found. Computing metrics...")
 
     baseline_ds = load_baseline_data()
+    baseline_ds = clip_baseline(baseline_ds, LEAD_TIME)
     model_ds = load_model_data(MODEL_NAME)
 
     results = {}
-
-    if TIME_SCALE.lower() == 'seasonal':
-        month_groups = [
-            (1, 2, 3),
-            (4, 5, 6),
-            (7, 8, 9),
-            (10, 11, 12)
-        ]
-
-        month_map = {
-            (1, 2, 3): "Jan-Mar",
-            (4, 5, 6): "Apr-Jun",
-            (7, 8, 9): "Jul-Sep",
-            (10, 11, 12): "Oct-Dec"
-        }
-
-    else:
-        month_groups = [(m,) for m in range(1, 13)]
-
-        month_map = {
-            (1,): "Jan",
-            (2,): "Feb",
-            (3,): "Mar",
-            (4,): "Apr",
-            (5,): "May",
-            (6,): "Jun",
-            (7,): "Jul",
-            (8,): "Aug",
-            (9,): "Sep",
-            (10,): "Oct",
-            (11,): "Nov",
-            (12,): "Dec"
-        }
-
 
     for group in month_groups:
         print(f"Processing months: {group}")
@@ -93,22 +117,40 @@ else:
         baseline_mean = baseline_slice['precip'].mean(dim='year')
         model_mean = model_slice.mean(dim='year')
 
-        bias_ratio = model_mean / baseline_mean
-        rmse = np.sqrt((diff ** 2).mean(dim='year'))
-        nrmse = rmse / baseline_mean
-        acc = spatial_anomaly_correlation_coefficient(model_slice, baseline_slice['precip'], "year")
+        # Drought F1 Score
+        drought_threshold_baseline = baseline_slice['precip'].quantile(0.2, dim='year')
+        drought_threshold_model = model_slice.quantile(0.2, dim='year')
+        baseline_drought = baseline_slice['precip'] < drought_threshold_baseline
+        model_drought = model_slice < drought_threshold_model
 
-        # Compute monthly averages for baseline and model data
-        baseline_avg = baseline_slice['precip'].mean(dim='year')
-        model_avg = model_slice.mean(dim='year')
+        baseline_flat = baseline_drought.values.flatten()
+        model_flat = model_drought.values.flatten()
+        drought_f1 = f1_score(baseline_flat, model_flat)
+
+        # Flood F1 Score
+        flood_threshold_baseline = baseline_slice['precip'].quantile(0.8, dim='year')
+        flood_threshold_model = model_slice.quantile(0.9, dim='year')
+        baseline_flood = baseline_slice['precip'] > flood_threshold_baseline
+        model_flood = model_slice > flood_threshold_model
+        baseline_flat = baseline_flood.values.flatten()
+        model_flat = model_flood.values.flatten()
+        flood_f1 = f1_score(baseline_flat, model_flat)
+
+        bias_ratio = model_mean / baseline_mean
+        nrmse = normalized_root_mean_square_error(diff, baseline_mean, "year")
+        acc = spatial_anomaly_correlation_coefficient(model_slice, baseline_slice['precip'], "year")
+        nmad = normalized_mean_absolute_difference(diff, baseline_mean, "year")
 
         results[month_map[group]] = {
             'lead': LEAD_TIME,
             'bias_ratio': bias_ratio,
-            'nrmse': nrmse,
-            'acc': acc,
-            'baseline_avg': baseline_avg,
-            'model_avg': model_avg
+            'NRMSE': nrmse,
+            'ACC': acc,
+            'NMAD': nmad,
+            'baseline_avg': baseline_mean,
+            'model_avg': model_mean,
+            'drought_f1': drought_f1,
+            'flood_f1': flood_f1
         }
 
     # Save to cache
@@ -134,6 +176,10 @@ for metric_name, metric_value in results[MONTH].items():
     if os.path.exists(filepath):
         print(f"Skipping plot generation for {filename} (already exists).")
         print(f"::PLOT::{os.path.abspath(filepath)}")
+        continue
+
+    if metric_name == 'drought_f1' or metric_name == "flood_f1":
+        print(f"::F1::{metric_value}")
         continue
 
     if metric_name != 'lead':
