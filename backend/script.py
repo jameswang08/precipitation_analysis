@@ -98,7 +98,7 @@ else:
     print("No cache found. Computing metrics...")
 
     baseline_ds = load_baseline_data()
-    baseline_ds = clip_baseline(baseline_ds, LEAD_TIME)
+    baseline_ds = clip_baseline(baseline_ds, LEAD_TIME, 1980, 2020)
     model_ds = load_model_data(MODEL_NAME)
 
     results = {}
@@ -173,37 +173,38 @@ units = {
 }
 
 # Generate plots
-for metric_name, metric_value in results[MONTH].items():
-    print(f"Processing metric: {metric_name}")
+for curr_month in month_map.values():
+    for metric_name, metric_value in results[curr_month].items():
+        print(f"Processing metric: {metric_name}")
 
-    filename = f"US_{MODEL_NAME}_{MONTH}_lead{LEAD_TIME}_{metric_name}.png"
-    filepath = os.path.join('./images', filename)
+        filename = f"US_{MODEL_NAME}_{curr_month}_lead{LEAD_TIME}_{metric_name}.png"
+        filepath = os.path.join('./images', filename)
 
-    if os.path.exists(filepath):
-        print(f"Skipping plot generation for {filename} (already exists).")
-        print(f"::PLOT::{os.path.abspath(filepath)}")
-        continue
+        if os.path.exists(filepath):
+            print(f"Skipping plot generation for {filename} (already exists).")
+            print(f"::PLOT::{os.path.abspath(filepath)}")
+            continue
 
-    if metric_name == 'drought_f1' or metric_name == "flood_f1":
-        print(f"::F1::{metric_value}")
-        continue
+        if metric_name == 'drought_f1' or metric_name == "flood_f1":
+            print(f"::F1::{metric_value}")
+            continue
 
-    if metric_name != 'lead':
-        unit = units.get(metric_name, '')
-        title = f"{metric_name.replace('_', ' ').title()} for {MONTH}"
-        if metric_name == "baseline_avg":
-            title = "PRISM " + title
-        else:
-            title = MODEL_NAME + " " + title + f" with lead={LEAD_TIME}"
-        if unit:
-            title += f" ({unit})"
+        if metric_name != 'lead':
+            unit = units.get(metric_name, '')
+            title = f"{metric_name.replace('_', ' ').title()} for {curr_month}"
+            if metric_name == "baseline_avg":
+                title = "PRISM " + title
+            else:
+                title = MODEL_NAME + " " + title + f" with lead={LEAD_TIME}"
+            if unit:
+                title += f" ({unit})"
 
-        print(f"Calling plot_metric_on_us_map for {metric_name}")
-        plot_metric_on_us_map(
-            metric_value,
-            title=title,
-            metric=metric_name,
-            model=MODEL_NAME,
-            month=MONTH,
-            lead=LEAD_TIME
-        )
+            print(f"Calling plot_metric_on_us_map for {metric_name}")
+            plot_metric_on_us_map(
+                metric_value,
+                title=title,
+                metric=metric_name,
+                model=MODEL_NAME,
+                month=curr_month,
+                lead=LEAD_TIME
+            )

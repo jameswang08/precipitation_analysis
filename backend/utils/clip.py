@@ -7,7 +7,7 @@ for filename in os.listdir(directory):
         year_str = filename[:4]
         try:
             year = int(year_str)
-            if year < 1981 or year > 2019:
+            if year < 1980 or year > 2021:
                 filepath = os.path.join(directory, filename)
                 print(f"Deleting {filepath}")
                 os.remove(filepath)
