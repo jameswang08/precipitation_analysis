@@ -1,7 +1,8 @@
 import subprocess
+import sys 
 
 def run_commands(frequency, month):
-    base_command = ["python3", "script.py", "US", "CanSIPS-IC3"]
+    base_command = ["python",  "script.py", "US", "CanSIPS-IC3"]
 
     start = 0.5
     end = 11.5
