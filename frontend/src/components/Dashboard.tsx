@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './Dashboard.css';
 import WeatherForm from './WeatherForm';
+import InteractiveMap from './InteractiveMap';
 
 function Dashboard() {
   const [plotUrls, setPlotUrls] = useState<string[]>([]);
@@ -24,9 +25,7 @@ function Dashboard() {
   else {
     content =
       (
-        <div>
-          Hello World
-        </div>
+        <InteractiveMap></InteractiveMap>
       )
   }
 
