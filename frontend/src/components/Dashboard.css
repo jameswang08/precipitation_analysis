@@ -20,3 +20,9 @@
 .Images img {
     max-width: 100%
 }
+
+.toggleMode {
+    position: fixed;
+    top: 0;
+    left: 0;
+}
