@@ -2,7 +2,6 @@ import { MapContainer, TileLayer, ImageOverlay } from "react-leaflet";
 import "./InteractiveMap.css";
 import "leaflet/dist/leaflet.css";
 import GeoTiffLayer from "./GeoTiffLayer";
-import HeatmapLayer from "./HeatmapLayer";
 import { useEffect, useState } from "react";
 
 

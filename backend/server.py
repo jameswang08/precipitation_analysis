@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from joblib import load
 from pydantic import BaseModel
 import subprocess
 import os
@@ -23,6 +24,11 @@ class WeatherRequest(BaseModel):
     lead_time: float
     time_scale: str
     month: str
+
+
+class StatsRequest(BaseModel):
+    lat: float
+    lng: float
 
 @app.post("/submit")
 async def run_script(data: WeatherRequest):
@@ -61,3 +67,24 @@ async def run_script(data: WeatherRequest):
             "error": e.stderr,
             "returncode": e.returncode
         }
+
+@app.post("/stats")
+async def get_stats(indices: StatsRequest):
+    data = load("./cache/mac/CanCM4i_lead0.5_metrics.joblib")
+    data = data['Jan']
+
+    res = {}
+
+    for key, val in data.items():
+        if key == "lead":
+            continue
+        if key in ("drought_f1", "flood_f1"):
+            res[key] = str(val)
+        else:
+            try:
+                selected_val = val.sel(y=indices.lat, x=indices.lng, method="nearest").compute().item()
+                res[key] = f"{selected_val:.3f}"
+            except Exception as e:
+                res[key] = "n/a"
+
+    return res
