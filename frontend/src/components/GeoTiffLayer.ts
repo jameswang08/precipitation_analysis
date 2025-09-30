@@ -36,55 +36,52 @@ function GeoTiffLayer({ url }: { url: string }) {
       map.fitBounds(layer.getBounds());
 
       map.on("click", async (e: L.LeafletMouseEvent) => {
-        let { lat, lng } = e.latlng;
-
-        const requestBody: any = {
-            lat: lat,
-            lng: lng,
-        };
-
-      try {
-        const response = await fetch('http://localhost:8000/stats', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!response.ok) {
-          throw new Error(`API error: ${response.statusText}`);
-        }
-
-        const data: Record<string, string | null> = await response.json();
-
-        const formattedValues = Object.entries(data).length > 0
-          ? `<ul>${Object.entries(data)
-              .map(([key, value]) => `<li><strong>${key}:</strong> ${value ?? "No data"}</li>`)
-              .join("")}</ul>`
-          : "No data";
+        const { lat, lng } = e.latlng;
 
         L.popup()
           .setLatLng(e.latlng)
           .setContent(`
             <strong>Detailed Stats</strong><br />
-            Lat: ${lat.toFixed(3)}<br />
-            Lng: ${lng.toFixed(3)}<br />
-            ${formattedValues}
+            <div>
+              <span><strong>Lat:</strong> ${lat.toFixed(2)} <strong>Long:</strong> ${lng.toFixed(2)}</span>
+              <table style="border-collapse: collapse; margin-top: 8px; font-size: 12px;">
+                <thead>
+                  <tr>
+                    <th style="text-align: left; padding: 4px;">Model</th>
+                    <th style="text-align: left; padding: 4px;">Forecast (mm/month)</th>
+                    <th style="text-align: left; padding: 4px;">Bias Ratio</th>
+                    <th style="text-align: left; padding: 4px;">NRMSE</th>
+                    <th style="text-align: left; padding: 4px;">ACC</th>
+                    <th style="text-align: left; padding: 4px;">NMAD</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${[
+                    "NCEP-CFSv2",
+                    "ECCC-CanESM5",
+                    "ECCC-GEM5.2-NEMO",
+                    "NCAR-CESM1",
+                    "NCAR-CCSM4",
+                    "NASA-GEOS-S2S-2"
+                  ]
+                    .map(
+                      (model) => `
+                    <tr>
+                      <td style="padding: 4px;"><strong>${model}</strong></td>
+                      <td style="padding: 4px;">1</td>
+                      <td style="padding: 4px;">2</td>
+                      <td style="padding: 4px;">3</td>
+                      <td style="padding: 4px;">4</td>
+                      <td style="padding: 4px;">5</td>
+                    </tr>
+                  `
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
           `)
           .openOn(map);
-        } catch (err) {
-          console.error("Error getting pixel value:", err);
-          L.popup()
-            .setLatLng(e.latlng)
-            .setContent(`
-              <strong>Error</strong><br />
-              Lat: ${lat.toFixed(5)}<br />
-              Lng: ${lng.toFixed(5)}<br />
-              Failed to fetch data.
-            `)
-            .openOn(map);
-        }
       });
     };
 
