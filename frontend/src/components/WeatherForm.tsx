@@ -7,7 +7,8 @@ const regions = [
 ];
 
 const models = [
-    { value: 'CanCM4i', label: "CanCM4i" }
+    { value: 'CanCM4i', label: "CanCM4i" },
+    { value: 'CanSIPS', label: 'CanSIPS-IC3'}
 ];
 
 const lead_times = [
