@@ -4,8 +4,8 @@ import WeatherForm from './WeatherForm';
 import InteractiveMap from './InteractiveMap';
 
 function Dashboard() {
-  const [plotUrls, setPlotUrls] = useState<string[]>([]);
-  const [mapType, setMapType] = useState<string>('plots');
+  const [plotUrls, setPlotUrls] = useState([]);
+  const [mapType, setMapType] = useState('plots');
 
   let content;
 

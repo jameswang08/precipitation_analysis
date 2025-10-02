@@ -4,17 +4,17 @@ import GeoRasterLayer from "georaster-layer-for-leaflet";
 import parseGeoraster from "georaster";
 import * as L from "leaflet";
 
-function GeoTiffLayer({ url }: { url: string }) {
+function GeoTiffLayer({ url }) {
   const map = useMap();
 
   useEffect(() => {
-    let layer: any;
+    let layer;
 
     const loadLayer = async () => {
       const response = await fetch(url);
       const arrayBuffer = await response.arrayBuffer();
 
-      const raster = await parseGeoraster(arrayBuffer) as any;
+      const raster = await parseGeoraster(arrayBuffer);
 
       layer = new GeoRasterLayer({
         georaster: raster,
@@ -35,7 +35,7 @@ function GeoTiffLayer({ url }: { url: string }) {
       layer.addTo(map);
       map.fitBounds(layer.getBounds());
 
-      map.on("click", async (e: L.LeafletMouseEvent) => {
+      map.on("click", async (e) => {
         const { lat, lng } = e.latlng;
 
         L.popup()

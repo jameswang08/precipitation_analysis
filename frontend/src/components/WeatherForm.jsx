@@ -53,26 +53,26 @@ const seasons = [
     { value: 'Oct-Dec', label: 'Oct-Dec' },
 ];
 
-const WeatherForm: React.FC<WeatherFormProps> = ({ setPlotUrls }) => {
+const WeatherForm = ({ setPlotUrls }) => {
     const [selectedRegion, setSelectedRegion] = useState(regions[0].value);
     const [selectedModel, setSelectedModel] = useState(models[0].value);
     const [selectedLeadTime, setSelectedLeadTime] = useState(lead_times[0].value);
     const [selectedTimeScale, setSelectedTimeScale] = useState(time_scale[0].value);
 
-    const [selectedMonth, setSelectedMonth] = useState<string>(months[0].value);
-    const [selectedSeason, setSelectedSeason] = useState<string>(seasons[0].value);
+    const [selectedMonth, setSelectedMonth] = useState(months[0].value);
+    const [selectedSeason, setSelectedSeason] = useState(seasons[0].value);
 
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, setError] = useState(null);
 
-    const handleRegionChange = (value: string) => setSelectedRegion(value);
-    const handleModelChange = (value: string) => setSelectedModel(value);
-    const handleLeadTimeChange = (value: string) => setSelectedLeadTime(value);
-    const handleTimeScaleChange = (value: string) => setSelectedTimeScale(value);
-    const handleMonthChange = (value: string) => setSelectedMonth(value);
-    const handleSeasonChange = (value: string) => setSelectedSeason(value);
+    const handleRegionChange = (value) => setSelectedRegion(value);
+    const handleModelChange = (value) => setSelectedModel(value);
+    const handleLeadTimeChange = (value) => setSelectedLeadTime(value);
+    const handleTimeScaleChange = (value) => setSelectedTimeScale(value);
+    const handleMonthChange = (value) => setSelectedMonth(value);
+    const handleSeasonChange = (value) => setSelectedSeason(value);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e) => {
             e.preventDefault();
             setIsLoading(true);
             setError(null);
@@ -196,10 +196,6 @@ const WeatherForm: React.FC<WeatherFormProps> = ({ setPlotUrls }) => {
             )}
         </div>
     );
-};
-
-type WeatherFormProps = {
-    setPlotUrls: (urls: string[]) => void;
 };
 
 export default WeatherForm;
