@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './Dashboard.css';
-import WeatherForm from './WeatherForm';
-import InteractiveMap from './InteractiveMap';
+import WeatherForm from '../WeatherForm/WeatherForm';
+import InteractiveMap from '../InteractiveMap/InteractiveMap';
 
 function Dashboard() {
   const [plotUrls, setPlotUrls] = useState([]);

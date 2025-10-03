@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import SimpleSelect from './SimpleSelect';
+import SimpleSelect from '../SimpleSelect';
 import './WeatherForm.css';
 
 const regions = [

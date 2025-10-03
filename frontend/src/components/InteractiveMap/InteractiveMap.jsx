@@ -1,8 +1,8 @@
 import { MapContainer, TileLayer } from "react-leaflet";
 import "./InteractiveMap.css";
 import "leaflet/dist/leaflet.css";
-import GeoTiffLayer from "./GeoTiffLayer";
-import Legend from "./Legend";
+import GeoTiffLayer from "../GeoTiffLayer";
+import Legend from "../Legend/Legend";
 
 function InteractiveMap() {
 
