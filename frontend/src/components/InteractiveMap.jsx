@@ -2,6 +2,7 @@ import { MapContainer, TileLayer } from "react-leaflet";
 import "./InteractiveMap.css";
 import "leaflet/dist/leaflet.css";
 import GeoTiffLayer from "./GeoTiffLayer";
+import Legend from "./Legend";
 
 function InteractiveMap() {
 
@@ -11,7 +12,8 @@ function InteractiveMap() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; OpenStreetMap contributors'
             />
-          <GeoTiffLayer url="/precipitation.tif" />
+            <GeoTiffLayer url="/precipitation.tif" />
+            <Legend />
         </MapContainer>
     );
 }
