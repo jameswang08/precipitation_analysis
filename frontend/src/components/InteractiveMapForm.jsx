@@ -15,36 +15,35 @@ const models = [
 ];
 
 const lead_times = [
-    { value: '0.5', label: "0.5" },
-    { value: '1.5', label: "1.5" },
-    { value: '2.5', label: "2.5" },
-    { value: '3.5', label: "3.5" },
-    { value: '4.5', label: "4.5" },
-    { value: '5.5', label: "5.5" },
-    { value: '6.5', label: "6.5" },
-    { value: '7.5', label: "7.5" },
-    { value: '8.5', label: "8.5" },
-    { value: '9.5', label: "9.5" },
-    { value: '10.5', label: "10.5" },
-    { value: '11.5', label: "11.5" }
+    { value: 'October', label: "0.5" },
+    { value: 'November', label: "1.5" },
+    { value: 'December', label: "2.5" },
+    { value: 'January', label: "3.5" },
+    { value: 'February', label: "4.5" },
+    { value: 'March', label: "5.5" },
+    { value: 'April', label: "6.5" },
+    { value: 'May', label: "7.5" },
+    { value: 'June', label: "8.5" },
+    { value: 'July', label: "9.5" },
 ];
 
-const InteractiveMapForm = () => {
+const InteractiveMapForm = ({ onSelectionChange }) => {
     const [selectedRegion, setSelectedRegion] = useState(regions[0].value);
     const [selectedModel, setSelectedModel] = useState(models[0].value);
     const [selectedLeadTime, setSelectedLeadTime] = useState(lead_times[0].value);
-
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
 
     const handleRegionChange = (value) => setSelectedRegion(value);
     const handleModelChange = (value) => setSelectedModel(value);
     const handleLeadTimeChange = (value) => setSelectedLeadTime(value);
 
     const handleSubmit = async (e) => {
-            e.preventDefault();
-            setIsLoading(true);
-            setError(null);
+        e.preventDefault();
+        console.log(selectedRegion, selectedModel, selectedLeadTime);
+        onSelectionChange({
+            region: selectedRegion,
+            model: selectedModel,
+            month: selectedLeadTime
+        });
     }
 
     return (
@@ -77,20 +76,6 @@ const InteractiveMapForm = () => {
 
                 <button type="submit" className="submit-button">Submit</button>
             </form>
-            {/* Error Display */}
-            {error && (
-                <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                    <strong>Error:</strong> {error}
-                </div>
-            )}
-
-            {/* Loading Indicator */}
-            {isLoading && (
-                <div className="text-center py-8">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <p className="mt-2 text-gray-600">Generating plots...</p>
-                </div>
-            )}
         </div>
     );
 };
