@@ -8,6 +8,9 @@ import os
 import math
 from joblib import dump, load
 from sklearn.metrics import f1_score
+import json
+
+import sys
 
 parser = argparse.ArgumentParser(description="Process model parameters.")
 parser.add_argument('region', type=str, help='Region name')
@@ -87,6 +90,24 @@ for group in month_groups:
         MONTH = month_map[group]
         break
 
+# plotted_metrics = [
+#     'bias_ratio',
+#     'NRMSE',
+#     'ACC',
+#     'NMAD',
+#     'baseline_avg',
+#     'model_avg'
+# ]
+
+# image_dir = './images'
+
+# # Print the expected plot filenames
+# for metric_name in plotted_metrics:
+#     filename = f"US_{MODEL_NAME}_{MONTH}_lead{LEAD_TIME}_{metric_name}.png"
+#     filepath = os.path.abspath(os.path.join(image_dir, filename))
+#     print(f"::PLOT::{filepath}")
+
+# sys.exit()
 
 os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
 
@@ -98,7 +119,7 @@ else:
     print("No cache found. Computing metrics...")
 
     baseline_ds = load_baseline_data()
-    baseline_ds = clip_baseline(baseline_ds, LEAD_TIME, 1980, 2020)
+    baseline_ds = clip_baseline(baseline_ds, LEAD_TIME, 1982, 2010)
     model_ds = load_model_data(MODEL_NAME)
 
     results = {}
@@ -163,6 +184,32 @@ else:
     print(f"Caching results to {CACHE_PATH}...")
     dump(results, CACHE_PATH)
     print("Done.")
+
+    # Also store results in a non-lazy JSON file
+    json_path = CACHE_PATH.replace('.joblib', '.json')
+    json_results = {}
+
+    for month, metrics in results.items():
+        json_metrics = {}
+        for key, value in metrics.items():
+            if isinstance(value, (float, int)):
+                json_metrics[key] = value
+            elif isinstance(value, np.ndarray):
+                json_metrics[key] = value.tolist()
+            elif hasattr(value, 'values'):  # for xarray DataArray or similar
+                json_metrics[key] = value.values.tolist()
+            else:
+                try:
+                    json_metrics[key] = float(value)
+                except:
+                    json_metrics[key] = str(value)
+        json_results[month] = json_metrics
+
+    with open(json_path, 'w') as f:
+        json.dump(json_results, f, indent=2)
+
+    print(f"Saved JSON results to {json_path}")
+
 
 units = {
     'baseline_avg': 'mm/month',
